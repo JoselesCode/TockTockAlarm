@@ -1,11 +1,11 @@
 import { motion } from "motion/react";
 import { AlarmClock, CheckCircle, Clock, PowerOff } from "lucide-react";
-import type { Doc } from "@/convex/_generated/dataModel.d.ts";
+import type { Shift } from "@/lib/app-state.tsx";
 import { SHIFT_ICONS, SHIFT_COLORS } from "@/lib/shift-utils.ts";
 import { cn } from "@/lib/utils.ts";
 
 type Props = {
-  activeShift?: Doc<"shifts"> | null;
+  activeShift?: Shift | null;
   totalShifts: number;
   activeAlarms: number;
 };

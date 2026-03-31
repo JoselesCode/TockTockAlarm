@@ -1,12 +1,10 @@
 import { useEffect, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api.js";
 import { AlarmClock, ClipboardCheck, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils.ts";
-import type { Doc } from "@/convex/_generated/dataModel.d.ts";
+import { useAppState, type Shift } from "@/lib/app-state.tsx";
 import AppHeader from "./_components/AppHeader.tsx";
 import ActiveShiftBanner from "./_components/ActiveShiftBanner.tsx";
 import ShiftCard from "./_components/ShiftCard.tsx";
@@ -16,12 +14,11 @@ import MarcajePage from "./marcaje/index.tsx";
 type Tab = "turnos" | "marcaje";
 
 export default function AppPage() {
-  const shifts = useQuery(api.shifts.getAll, {});
-  const initDefaults = useMutation(api.shifts.initDefaultShifts);
+  const { shifts, alarms, initDefaultShifts } = useAppState();
 
   const [tab, setTab] = useState<Tab>("turnos");
   const [createOpen, setCreateOpen] = useState(false);
-  const [editShift, setEditShift] = useState<Doc<"shifts"> | null>(null);
+  const [editShift, setEditShift] = useState<Shift | null>(null);
   const [initialized, setInitialized] = useState(false);
 
   // Initialize default shifts on first load
@@ -29,10 +26,10 @@ export default function AppPage() {
     if (shifts !== undefined && !initialized) {
       setInitialized(true);
       if (shifts.length === 0) {
-        initDefaults().catch(() => {});
+        initDefaultShifts();
       }
     }
-  }, [shifts, initialized, initDefaults]);
+  }, [shifts, initialized, initDefaultShifts]);
 
   const activeShift = shifts?.find((s) => s.isActive) ?? null;
   const sortedShifts = shifts?.slice().sort((a, b) => a.order - b.order) ?? [];
@@ -97,7 +94,7 @@ export default function AppPage() {
                 <ActiveShiftBanner
                   activeShift={activeShift}
                   totalShifts={sortedShifts.length}
-                  activeAlarms={0}
+                  activeAlarms={alarms.filter((a) => a.enabled && a.shiftId === activeShift?._id).length}
                 />
               )}
 

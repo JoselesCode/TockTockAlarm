@@ -1,13 +1,13 @@
-import { AlarmClock, Home, LogOut, Moon, Sun } from "lucide-react";
+import { AlarmClock, Home, LogOut } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button.tsx";
 import { useAuth } from "@/hooks/use-auth.ts";
-import type { Doc } from "@/convex/_generated/dataModel.d.ts";
+import type { Shift } from "@/lib/app-state.tsx";
 import { SHIFT_ICONS, SHIFT_COLORS } from "@/lib/shift-utils.ts";
 import { cn } from "@/lib/utils.ts";
 
 type Props = {
-  activeShift?: Doc<"shifts"> | null;
+  activeShift?: Shift | null;
 };
 
 export default function AppHeader({ activeShift }: Props) {
