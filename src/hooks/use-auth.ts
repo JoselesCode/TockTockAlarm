@@ -1,10 +1,5 @@
-import { useAuthContext } from "@/components/providers/auth.tsx";
+import { useAuthContext } from "@/components/providers/auth";
 
 export function useAuth() {
   return useAuthContext();
-}
-
-export function useUser() {
-  const { user } = useAuthContext();
-  return user;
 }

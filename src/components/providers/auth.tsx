@@ -1,6 +1,21 @@
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import type { User } from "firebase/auth";
+import {
+  GoogleAuthProvider,
+  onAuthStateChanged,
+  signInWithPopup,
+  signOut,
+} from "firebase/auth";
+import { auth } from "@/lib/firebase";
 
-type DemoUser = {
+type AppUser = {
   profile: {
     name: string;
     email: string;
@@ -8,7 +23,7 @@ type DemoUser = {
 };
 
 type AuthContextValue = {
-  user: DemoUser | null;
+  user: AppUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: Error | null;
@@ -18,40 +33,58 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const STORAGE_KEY = "tocktockalarm.auth";
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return localStorage.getItem(STORAGE_KEY) === "true";
-  });
+  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setFirebaseUser(user);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const signinRedirect = useCallback(async () => {
-    setIsAuthenticated(true);
-    localStorage.setItem(STORAGE_KEY, "true");
+    try {
+      setError(null);
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error("Error al iniciar sesión"));
+      throw err;
+    }
   }, []);
 
   const removeUser = useCallback(async () => {
-    setIsAuthenticated(false);
-    localStorage.setItem(STORAGE_KEY, "false");
+    try {
+      setError(null);
+      await signOut(auth);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error("Error al cerrar sesión"));
+      throw err;
+    }
   }, []);
 
   const value = useMemo<AuthContextValue>(
     () => ({
-      user: isAuthenticated
+      user: firebaseUser
         ? {
             profile: {
-              name: "Trabajador",
-              email: "demo@tocktockalarm.app",
+              name: firebaseUser.displayName || "Usuario",
+              email: firebaseUser.email || "",
             },
           }
         : null,
-      isAuthenticated,
-      isLoading: false,
-      error: null,
+      isAuthenticated: !!firebaseUser,
+      isLoading,
+      error,
       signinRedirect,
       removeUser,
     }),
-    [isAuthenticated, removeUser, signinRedirect]
+    [firebaseUser, isLoading, error, signinRedirect, removeUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

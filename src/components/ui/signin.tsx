@@ -6,52 +6,24 @@ import { useAuth } from "@/hooks/use-auth.ts";
 import { Button, buttonVariants } from "@/components/ui/button.tsx";
 
 export interface SignInButtonProps
-  extends
-    Omit<React.ComponentProps<"button">, "onClick">,
+  extends Omit<React.ComponentProps<"button">, "onClick">,
     VariantProps<typeof buttonVariants> {
-  /**
-   * Custom onClick handler that runs before authentication action
-   */
   onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
-  /**
-   * Whether to show icons in the button
-   * @default true
-   */
   showIcon?: boolean;
-  /**
-   * Custom text for sign in state
-   * @default "Sign In"
-   */
   signInText?: string;
-  /**
-   * Custom text for sign out state
-   * @default "Sign Out"
-   */
   signOutText?: string;
-  /**
-   * Custom text for loading state
-   * @default "Signing In..." or "Signing Out..."
-   */
   loadingText?: string;
-  /**
-   * Whether to use the asChild pattern
-   * @default false
-   */
   asChild?: boolean;
 }
 
-/**
- * A button component that handles authentication sign in/out with proper loading states
- * and accessibility features.
- */
 export const SignInButton = forwardRef<HTMLButtonElement, SignInButtonProps>(
   (
     {
       onClick,
       disabled,
       showIcon = true,
-      signInText = "Sign In",
-      signOutText = "Sign Out",
+      signInText = "Ingresar con Google",
+      signOutText = "Cerrar sesión",
       loadingText,
       className,
       variant,
@@ -66,16 +38,15 @@ export const SignInButton = forwardRef<HTMLButtonElement, SignInButtonProps>(
 
     useEffect(() => {
       if (error) {
-        toast.error("Login error", {
+        toast.error("Error de autenticación", {
           description: error.message,
         });
-        console.error("Login error", error);
+        console.error("Authentication error:", error);
       }
     }, [error]);
 
     const handleClick = useCallback(
       async (event: React.MouseEvent<HTMLButtonElement>) => {
-        // Run custom onClick first
         onClick?.(event);
 
         try {
@@ -86,16 +57,18 @@ export const SignInButton = forwardRef<HTMLButtonElement, SignInButtonProps>(
           }
         } catch (err) {
           console.error("Authentication error:", err);
-          // Don't prevent the default here as the auth library handles errors
+          toast.error("No se pudo completar la autenticación");
         }
       },
       [isAuthenticated, removeUser, signinRedirect, onClick],
     );
 
     const isDisabled = disabled || isLoading;
+
     const defaultLoadingText = isAuthenticated
-      ? "Signing Out..."
-      : "Signing In...";
+      ? "Cerrando sesión..."
+      : "Iniciando sesión...";
+
     const currentLoadingText = loadingText || defaultLoadingText;
 
     const buttonText = isLoading
@@ -122,9 +95,7 @@ export const SignInButton = forwardRef<HTMLButtonElement, SignInButtonProps>(
         className={className}
         asChild={asChild}
         aria-label={
-          isAuthenticated
-            ? "Sign out of your account"
-            : "Sign in to your account"
+          isAuthenticated ? "Cerrar sesión de la cuenta" : "Iniciar sesión con Google"
         }
         aria-describedby={error ? "auth-error" : undefined}
         {...props}

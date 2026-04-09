@@ -6,7 +6,15 @@ import AppPage from "./page.tsx";
 import { useAuth } from "@/hooks/use-auth.ts";
 
 export default function App() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <p className="text-sm text-muted-foreground">Cargando...</p>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return (
@@ -20,12 +28,18 @@ export default function App() {
               <h1 className="font-black text-3xl tracking-tight">
                 TockTock<span className="text-primary">Alarm</span>
               </h1>
-              <p className="text-muted-foreground text-sm mt-1">Accede al modo demo para usar la app</p>
+              <p className="text-muted-foreground text-sm mt-1">
+                Ingresa con Google para usar la app
+              </p>
             </div>
           </div>
 
           <div className="space-y-3">
-            <SignInButton className="w-full" signInText="Entrar al modo demo" signOutText="Salir" />
+            <SignInButton
+              className="w-full"
+              signInText="Ingresar con Google"
+              signOutText="Cerrar sesión"
+            />
           </div>
 
           <Link to="/">
