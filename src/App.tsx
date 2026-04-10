@@ -13,7 +13,6 @@ function AppContent() {
   return (
     <>
       <OfflineIndicator />
-
       <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/app" element={<AppIndex />} />
