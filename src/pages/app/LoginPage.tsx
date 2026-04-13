@@ -1,27 +1,57 @@
-import { useNavigate } from "react-router-dom";
+import { AlarmClock, ArrowLeft } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button.tsx";
+import { SignInButton } from "@/components/ui/signin.tsx";
+import AppPage from "./page.tsx";
+import { useAuth } from "@/hooks/use-auth.ts";
 
-export default function LoginPage() {
-  const navigate = useNavigate();
+export default function App() {
+  const { isAuthenticated, isLoading } = useAuth();
 
-  function handleLogin() {
-    navigate("/app/home");
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <p className="text-sm text-muted-foreground">Cargando...</p>
+      </div>
+    );
   }
 
-  return (
-    <main className="min-h-screen flex items-center justify-center bg-background text-foreground">
-      <div className="w-full max-w-md rounded-2xl border p-8 shadow-lg">
-        <h1 className="text-3xl font-bold mb-4">Acceso</h1>
-        <p className="text-muted-foreground mb-6">
-          Inicia sesión con Google para acceder a TockTockAlarm.
-        </p>
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <div className="w-full max-w-sm text-center space-y-6">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-20 h-20 rounded-3xl bg-primary flex items-center justify-center shadow-xl">
+              <AlarmClock className="w-10 h-10 text-primary-foreground" strokeWidth={2.5} />
+            </div>
+            <div>
+              <h1 className="font-black text-3xl tracking-tight">
+                TockTock<span className="text-primary">Alarm</span>
+              </h1>
+              <p className="text-muted-foreground text-sm mt-1">
+                Ingresa con Google para usar la app
+              </p>
+            </div>
+          </div>
 
-        <button
-          onClick={handleLogin}
-          className="w-full rounded-xl px-4 py-3 font-semibold border"
-        >
-          Ingresar con Google
-        </button>
+          <div className="space-y-3">
+            <SignInButton
+              className="w-full"
+              signInText="Ingresar con Google"
+              signOutText="Cerrar sesión"
+            />
+          </div>
+
+          <Link to="/">
+            <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground">
+              <ArrowLeft className="w-4 h-4" />
+              Volver al inicio
+            </Button>
+          </Link>
+        </div>
       </div>
-    </main>
-  );
+    );
+  }
+
+  return <AppPage />;
 }

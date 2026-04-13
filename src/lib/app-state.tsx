@@ -1,4 +1,22 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { useAuthContext } from "@/components/providers/auth";
+import {
+  createUserShift,
+  deleteUserShift,
+  getUserShifts,
+  updateUserShift,
+} from "@/lib/firebase/shifts";
+import {
+  createUserAlarm,
+  deleteUserAlarm,
+  getUserAlarms,
+  updateUserAlarm,
+} from "@/lib/firebase/alarms";
+import {
+  createAttendanceRecord,
+  deleteAttendanceRecord,
+  getUserAttendance,
+} from "@/lib/firebase/attendance";
 
 export type Shift = {
   _id: string;
@@ -29,37 +47,81 @@ export type AttendanceRecord = {
   longitude?: number;
   accuracy?: number;
   note?: string;
+  geofenceId?: string;
+  geofenceName?: string;
+  insideGeofence?: boolean;
+  faceVerificationStatus?: "pending" | "verified" | "rejected" | "not_used";
+  faceImageUrl?: string;
+  markStatus?: "approved" | "rejected" | "manual_review";
 };
 
 type AppStateValue = {
   shifts: Shift[];
   alarms: Alarm[];
   attendance: AttendanceRecord[];
-  createShift: (input: Omit<Shift, "_id" | "order" | "isActive">) => void;
-  updateShift: (id: string, input: Partial<Omit<Shift, "_id" | "order">>) => void;
-  removeShift: (id: string) => void;
-  setShiftActive: (id: string, isActive: boolean) => void;
-  initDefaultShifts: () => void;
-  createAlarm: (input: Omit<Alarm, "_id" | "enabled">) => void;
-  updateAlarm: (id: string, input: Partial<Omit<Alarm, "_id" | "shiftId">>) => void;
-  removeAlarm: (id: string) => void;
+  createShift: (input: Omit<Shift, "_id" | "order" | "isActive">) => Promise<void>;
+  updateShift: (id: string, input: Partial<Omit<Shift, "_id" | "order">>) => Promise<void>;
+  removeShift: (id: string) => Promise<void>;
+  setShiftActive: (id: string, isActive: boolean) => Promise<void>;
+  initDefaultShifts: () => Promise<void>;
+  createAlarm: (input: Omit<Alarm, "_id" | "enabled">) => Promise<void>;
+  updateAlarm: (id: string, input: Partial<Omit<Alarm, "_id" | "shiftId">>) => Promise<void>;
+  removeAlarm: (id: string) => Promise<void>;
   getAlarmsByShift: (shiftId: string) => Alarm[];
-  recordAttendance: (input: Omit<AttendanceRecord, "_id" | "timestamp">) => void;
-  removeAttendance: (id: string) => void;
+  recordAttendance: (
+    input: Omit<AttendanceRecord, "_id" | "timestamp">
+  ) => Promise<void>;
+  removeAttendance: (id: string) => Promise<void>;
 };
-
-const STORAGE_KEY = "tocktockalarm.local.v1";
 
 const AppStateContext = createContext<AppStateValue | null>(null);
 
-function uid(prefix: string) {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+function mapShift(shift: any): Shift {
+  return {
+    _id: shift._id ?? "",
+    name: shift.name,
+    icon: shift.icon,
+    color: shift.color,
+    startTime: shift.startTime,
+    endTime: shift.endTime,
+    order: shift.order,
+    isActive: shift.isActive,
+  };
 }
 
-function getDefaultShifts(): Shift[] {
+function mapAlarm(alarm: any): Alarm {
+  return {
+    _id: alarm._id ?? "",
+    shiftId: alarm.shiftId,
+    label: alarm.label,
+    time: alarm.time,
+    days: alarm.days ?? [],
+    enabled: alarm.enabled,
+  };
+}
+
+function mapAttendance(record: any): AttendanceRecord {
+  return {
+    _id: record._id ?? "",
+    type: record.type,
+    timestamp: record.timestamp,
+    shiftId: record.shiftId,
+    latitude: record.latitude,
+    longitude: record.longitude,
+    accuracy: record.accuracy,
+    note: record.note,
+    geofenceId: record.geofenceId,
+    geofenceName: record.geofenceName,
+    insideGeofence: record.insideGeofence,
+    faceVerificationStatus: record.faceVerificationStatus,
+    faceImageUrl: record.faceImageUrl,
+    markStatus: record.markStatus,
+  };
+}
+
+function getDefaultShifts(): Omit<Shift, "_id">[] {
   return [
     {
-      _id: uid("shift"),
       name: "Turno Mañana",
       icon: "sun",
       color: "amber",
@@ -69,7 +131,6 @@ function getDefaultShifts(): Shift[] {
       isActive: true,
     },
     {
-      _id: uid("shift"),
       name: "Turno Tarde",
       icon: "sunset",
       color: "orange",
@@ -79,7 +140,6 @@ function getDefaultShifts(): Shift[] {
       isActive: false,
     },
     {
-      _id: uid("shift"),
       name: "Turno Noche",
       icon: "moon",
       color: "indigo",
@@ -92,86 +152,207 @@ function getDefaultShifts(): Shift[] {
 }
 
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
+  const { user, isAuthenticated, isLoading: isAuthLoading } = useAuthContext();
+
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [alarms, setAlarms] = useState<Alarm[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
 
-  useEffect(() => {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
-    try {
-      const parsed = JSON.parse(raw) as {
-        shifts?: Shift[];
-        alarms?: Alarm[];
-        attendance?: AttendanceRecord[];
-      };
-      setShifts(parsed.shifts ?? []);
-      setAlarms(parsed.alarms ?? []);
-      setAttendance(parsed.attendance ?? []);
-    } catch {
-      localStorage.removeItem(STORAGE_KEY);
-    }
-  }, []);
+  const uidValue = user?.uid ?? "";
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ shifts, alarms, attendance }));
-  }, [shifts, alarms, attendance]);
+    async function loadFirestoreData() {
+      if (isAuthLoading) return;
+
+      if (!isAuthenticated || !uidValue) {
+        setShifts([]);
+        setAlarms([]);
+        setAttendance([]);
+        return;
+      }
+
+      try {
+        const [loadedShifts, loadedAlarms, loadedAttendance] = await Promise.all([
+          getUserShifts(uidValue),
+          getUserAlarms(uidValue),
+          getUserAttendance(uidValue),
+        ]);
+
+        setShifts(loadedShifts.map(mapShift));
+        setAlarms(loadedAlarms.map(mapAlarm));
+        setAttendance(loadedAttendance.map(mapAttendance));
+      } catch (error) {
+        console.error("Error cargando datos desde Firestore:", error);
+      }
+    }
+
+    void loadFirestoreData();
+  }, [isAuthenticated, isAuthLoading, uidValue]);
 
   const value = useMemo<AppStateValue>(
     () => ({
       shifts,
       alarms,
       attendance,
-      createShift: (input) => {
-        setShifts((prev) => [
-          ...prev,
-          {
-            _id: uid("shift"),
-            order: prev.length,
-            isActive: prev.length === 0,
-            ...input,
-          },
+
+      createShift: async (input) => {
+        if (!uidValue) return;
+
+        const currentShifts = await getUserShifts(uidValue);
+
+        const newShift = {
+          ...input,
+          order: currentShifts.length,
+          isActive: currentShifts.length === 0,
+        };
+
+        await createUserShift(uidValue, newShift);
+
+        const updatedShifts = await getUserShifts(uidValue);
+        setShifts(updatedShifts.map(mapShift));
+      },
+
+      updateShift: async (id, input) => {
+        if (!uidValue) return;
+
+        await updateUserShift(uidValue, id, input);
+
+        const updatedShifts = await getUserShifts(uidValue);
+        setShifts(updatedShifts.map(mapShift));
+      },
+
+      removeShift: async (id) => {
+        if (!uidValue) return;
+
+        const currentAlarms = await getUserAlarms(uidValue);
+        const alarmsToDelete = currentAlarms.filter((alarm) => alarm.shiftId === id);
+
+        for (const alarm of alarmsToDelete) {
+          if (alarm._id) {
+            await deleteUserAlarm(uidValue, alarm._id);
+          }
+        }
+
+        await deleteUserShift(uidValue, id);
+
+        const updatedShifts = await getUserShifts(uidValue);
+        const reorderedShifts = updatedShifts.map((shift, index) => ({
+          ...shift,
+          order: index,
+        }));
+
+        for (const shift of reorderedShifts) {
+          if (shift._id) {
+            await updateUserShift(uidValue, shift._id, { order: shift.order });
+          }
+        }
+
+        const [finalShifts, finalAlarms] = await Promise.all([
+          getUserShifts(uidValue),
+          getUserAlarms(uidValue),
         ]);
+
+        setShifts(finalShifts.map(mapShift));
+        setAlarms(finalAlarms.map(mapAlarm));
       },
-      updateShift: (id, input) => {
-        setShifts((prev) => prev.map((s) => (s._id === id ? { ...s, ...input } : s)));
+
+      setShiftActive: async (id, isActive) => {
+        if (!uidValue) return;
+
+        const currentShifts = await getUserShifts(uidValue);
+
+        if (isActive) {
+          for (const shift of currentShifts) {
+            if (shift._id) {
+              await updateUserShift(uidValue, shift._id, {
+                isActive: shift._id === id,
+              });
+            }
+          }
+        } else {
+          await updateUserShift(uidValue, id, { isActive: false });
+        }
+
+        const updatedShifts = await getUserShifts(uidValue);
+        setShifts(updatedShifts.map(mapShift));
       },
-      removeShift: (id) => {
-        setShifts((prev) => prev.filter((s) => s._id !== id).map((s, idx) => ({ ...s, order: idx })));
-        setAlarms((prev) => prev.filter((a) => a.shiftId !== id));
+
+      initDefaultShifts: async () => {
+        if (!uidValue) return;
+
+        const existingShifts = await getUserShifts(uidValue);
+
+        if (existingShifts.length > 0) {
+          setShifts(existingShifts.map(mapShift));
+          return;
+        }
+
+        const defaults = getDefaultShifts();
+
+        for (const shift of defaults) {
+          await createUserShift(uidValue, shift);
+        }
+
+        const loadedShifts = await getUserShifts(uidValue);
+        setShifts(loadedShifts.map(mapShift));
       },
-      setShiftActive: (id, isActive) => {
-        setShifts((prev) =>
-          prev.map((s) => ({
-            ...s,
-            isActive: isActive ? s._id === id : s._id === id ? false : s.isActive,
-          }))
-        );
+
+      createAlarm: async (input) => {
+        if (!uidValue) return;
+
+        await createUserAlarm(uidValue, {
+          ...input,
+          enabled: true,
+        });
+
+        const updatedAlarms = await getUserAlarms(uidValue);
+        setAlarms(updatedAlarms.map(mapAlarm));
       },
-      initDefaultShifts: () => {
-        setShifts((prev) => (prev.length > 0 ? prev : getDefaultShifts()));
+
+      updateAlarm: async (id, input) => {
+        if (!uidValue) return;
+
+        await updateUserAlarm(uidValue, id, input);
+
+        const updatedAlarms = await getUserAlarms(uidValue);
+        setAlarms(updatedAlarms.map(mapAlarm));
       },
-      createAlarm: (input) => {
-        setAlarms((prev) => [...prev, { _id: uid("alarm"), enabled: true, ...input }]);
+
+      removeAlarm: async (id) => {
+        if (!uidValue) return;
+
+        await deleteUserAlarm(uidValue, id);
+
+        const updatedAlarms = await getUserAlarms(uidValue);
+        setAlarms(updatedAlarms.map(mapAlarm));
       },
-      updateAlarm: (id, input) => {
-        setAlarms((prev) => prev.map((a) => (a._id === id ? { ...a, ...input } : a)));
-      },
-      removeAlarm: (id) => {
-        setAlarms((prev) => prev.filter((a) => a._id !== id));
-      },
+
       getAlarmsByShift: (shiftId) => alarms.filter((a) => a.shiftId === shiftId),
-      recordAttendance: (input) => {
-        setAttendance((prev) => [
-          { _id: uid("att"), timestamp: new Date().toISOString(), ...input },
-          ...prev,
-        ]);
+
+      recordAttendance: async (input) => {
+        if (!uidValue) return;
+
+        await createAttendanceRecord(uidValue, {
+          ...input,
+          timestamp: new Date().toISOString(),
+          faceVerificationStatus: input.faceVerificationStatus ?? "not_used",
+          markStatus: input.markStatus ?? "approved",
+        });
+
+        const updatedAttendance = await getUserAttendance(uidValue);
+        setAttendance(updatedAttendance.map(mapAttendance));
       },
-      removeAttendance: (id) => {
-        setAttendance((prev) => prev.filter((r) => r._id !== id));
+
+      removeAttendance: async (id) => {
+        if (!uidValue) return;
+
+        await deleteAttendanceRecord(uidValue, id);
+
+        const updatedAttendance = await getUserAttendance(uidValue);
+        setAttendance(updatedAttendance.map(mapAttendance));
       },
     }),
-    [shifts, alarms, attendance]
+    [shifts, alarms, attendance, uidValue]
   );
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;

@@ -14,8 +14,10 @@ import {
   signOut,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import { ensureUserProfile } from "@/lib/firebase/users";
 
 type AppUser = {
+  uid: string;
   profile: {
     name: string;
     email: string;
@@ -39,9 +41,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setFirebaseUser(user);
-      setIsLoading(false);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      try {
+        setError(null);
+        setFirebaseUser(user);
+
+        if (user) {
+          await ensureUserProfile({
+            uid: user.uid,
+            name: user.displayName || "Usuario",
+            email: user.email || "",
+            photoURL: user.photoURL,
+          });
+        }
+      } catch (err) {
+        console.error("Error creando/actualizando usuario en Firestore:", err);
+        setError(
+          err instanceof Error
+            ? err
+            : new Error("Error al sincronizar usuario con Firestore")
+        );
+      } finally {
+        setIsLoading(false);
+      }
     });
 
     return () => unsubscribe();
@@ -72,6 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     () => ({
       user: firebaseUser
         ? {
+            uid: firebaseUser.uid,
             profile: {
               name: firebaseUser.displayName || "Usuario",
               email: firebaseUser.email || "",
