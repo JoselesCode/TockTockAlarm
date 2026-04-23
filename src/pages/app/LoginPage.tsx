@@ -1,12 +1,23 @@
+import { useEffect } from "react";
 import { AlarmClock, ArrowLeft } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button.tsx";
 import { SignInButton } from "@/components/ui/signin.tsx";
-import AppPage from "./page.tsx";
 import { useAuth } from "@/hooks/use-auth.ts";
 
-export default function App() {
-  const { isAuthenticated, isLoading } = useAuth();
+export default function LoginPage() {
+  const { user, isAuthenticated, isLoading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && user) {
+      if (user.role === "rrhh") {
+        navigate("/app/dashboard", { replace: true });
+      } else {
+        navigate("/app/home", { replace: true });
+      }
+    }
+  }, [user, isAuthenticated, isLoading, navigate]);
 
   if (isLoading) {
     return (
@@ -22,8 +33,12 @@ export default function App() {
         <div className="w-full max-w-sm text-center space-y-6">
           <div className="flex flex-col items-center gap-3">
             <div className="w-20 h-20 rounded-3xl bg-primary flex items-center justify-center shadow-xl">
-              <AlarmClock className="w-10 h-10 text-primary-foreground" strokeWidth={2.5} />
+              <AlarmClock
+                className="w-10 h-10 text-primary-foreground"
+                strokeWidth={2.5}
+              />
             </div>
+
             <div>
               <h1 className="font-black text-3xl tracking-tight">
                 TockTock<span className="text-primary">Alarm</span>
@@ -43,7 +58,11 @@ export default function App() {
           </div>
 
           <Link to="/">
-            <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-2 text-muted-foreground"
+            >
               <ArrowLeft className="w-4 h-4" />
               Volver al inicio
             </Button>
@@ -53,5 +72,9 @@ export default function App() {
     );
   }
 
-  return <AppPage />;
+  if (user?.role === "rrhh") {
+    return <Navigate to="/app/dashboard" replace />;
+  }
+
+  return <Navigate to="/app/home" replace />;
 }

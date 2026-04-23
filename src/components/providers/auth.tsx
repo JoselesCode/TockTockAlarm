@@ -6,7 +6,6 @@ import {
   useMemo,
   useState,
 } from "react";
-import type { User } from "firebase/auth";
 import {
   GoogleAuthProvider,
   onAuthStateChanged,
@@ -14,14 +13,21 @@ import {
   signOut,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { ensureUserProfile } from "@/lib/firebase/users";
+import {
+  ensureUserProfile,
+  getUserProfile,
+  type UserRole,
+} from "@/lib/firebase/users";
 
 type AppUser = {
   uid: string;
   profile: {
     name: string;
     email: string;
+    photoURL?: string | null;
   };
+  role: UserRole;
+  status?: "active" | "inactive";
 };
 
 type AuthContextValue = {
@@ -36,31 +42,48 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
+        setIsLoading(true);
         setError(null);
-        setFirebaseUser(user);
 
-        if (user) {
-          await ensureUserProfile({
-            uid: user.uid,
-            name: user.displayName || "Usuario",
-            email: user.email || "",
-            photoURL: user.photoURL,
-          });
+        if (!firebaseUser) {
+          setUser(null);
+          return;
         }
+
+        await ensureUserProfile({
+          uid: firebaseUser.uid,
+          name: firebaseUser.displayName || "Usuario",
+          email: firebaseUser.email || "",
+          photoURL: firebaseUser.photoURL,
+        });
+
+        const profile = await getUserProfile(firebaseUser.uid);
+
+        setUser({
+          uid: firebaseUser.uid,
+          profile: {
+            name: profile?.name || firebaseUser.displayName || "Usuario",
+            email: profile?.email || firebaseUser.email || "",
+            photoURL: profile?.photoURL || firebaseUser.photoURL,
+          },
+          role: profile?.role || "worker",
+          status: profile?.status || "active",
+        });
       } catch (err) {
-        console.error("Error creando/actualizando usuario en Firestore:", err);
+        console.error("Error sincronizando usuario:", err);
         setError(
           err instanceof Error
             ? err
             : new Error("Error al sincronizar usuario con Firestore")
         );
+        setUser(null);
       } finally {
         setIsLoading(false);
       }
@@ -84,6 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setError(null);
       await signOut(auth);
+      setUser(null);
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Error al cerrar sesión"));
       throw err;
@@ -92,22 +116,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo<AuthContextValue>(
     () => ({
-      user: firebaseUser
-        ? {
-            uid: firebaseUser.uid,
-            profile: {
-              name: firebaseUser.displayName || "Usuario",
-              email: firebaseUser.email || "",
-            },
-          }
-        : null,
-      isAuthenticated: !!firebaseUser,
+      user,
+      isAuthenticated: !!user,
       isLoading,
       error,
       signinRedirect,
       removeUser,
     }),
-    [firebaseUser, isLoading, error, signinRedirect, removeUser]
+    [user, isLoading, error, signinRedirect, removeUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { DefaultProviders } from "./components/providers/default.tsx";
+import ProtectedRoute from "./components/providers/ProtectedRoute.tsx";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import LoginPage from "./pages/app/LoginPage.tsx";
@@ -15,11 +16,29 @@ function AppContent() {
   return (
     <>
       <OfflineIndicator />
+
       <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/app" element={<LoginPage />} />
-        <Route path="/app/home" element={<HomePage />} />
-        <Route path="/app/dashboard" element={<DashboardPage />} />
+
+        <Route
+          path="/app/home"
+          element={
+            <ProtectedRoute allowedRoles={["worker"]}>
+              <HomePage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/app/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={["rrhh"]}>
+              <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
+
         <Route path="*" element={<NotFound />} />
       </Routes>
 
