@@ -7,7 +7,7 @@ Estructura de la APP
 /app
 *Acceso / login
 
-/app/home
+/app
 *Panel principal del trabajador
 **Turnos
 **Alarmas
