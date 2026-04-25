@@ -1,9 +1,13 @@
 import {
+  collection,
   doc,
   getDoc,
+  getDocs,
+  query,
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
@@ -35,13 +39,8 @@ export async function ensureUserProfile(input: {
       name: input.name,
       email: input.email,
       photoURL: input.photoURL ?? null,
-
-      // Roles del sistema
       role: "worker",
-
-      // Estado del usuario
       status: "active",
-
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -57,9 +56,6 @@ export async function ensureUserProfile(input: {
   });
 }
 
-/**
- * Obtener perfil completo del usuario desde Firestore
- */
 export async function getUserProfile(
   uid: string
 ): Promise<FirestoreUserProfile | null> {
@@ -67,9 +63,7 @@ export async function getUserProfile(
     const ref = doc(db, "users", uid);
     const snapshot = await getDoc(ref);
 
-    if (!snapshot.exists()) {
-      return null;
-    }
+    if (!snapshot.exists()) return null;
 
     return snapshot.data() as FirestoreUserProfile;
   } catch (error) {
@@ -78,14 +72,22 @@ export async function getUserProfile(
   }
 }
 
-/**
- * Cambiar rol del usuario
- * útil para administración futura RRHH/Admin
- */
-export async function updateUserRole(
-  uid: string,
-  role: UserRole
-) {
+export async function getAllActiveUsers(): Promise<FirestoreUserProfile[]> {
+  try {
+    const ref = collection(db, "users");
+    const q = query(ref, where("status", "==", "active"));
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map((docItem) => ({
+      ...(docItem.data() as FirestoreUserProfile),
+    }));
+  } catch (error) {
+    console.error("Error obteniendo usuarios activos:", error);
+    return [];
+  }
+}
+
+export async function updateUserRole(uid: string, role: UserRole) {
   try {
     const ref = doc(db, "users", uid);
 
@@ -99,9 +101,6 @@ export async function updateUserRole(
   }
 }
 
-/**
- * Cambiar estado del usuario
- */
 export async function updateUserStatus(
   uid: string,
   status: "active" | "inactive"
