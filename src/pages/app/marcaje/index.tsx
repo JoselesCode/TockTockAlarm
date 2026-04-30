@@ -15,6 +15,16 @@ import { cn } from "@/lib/utils.ts";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 import { lazy, Suspense } from "react";
 import { type AttendanceRecord, useAppState } from "@/lib/app-state.tsx";
+import { isInsideGeofence } from "@/lib/firebase/locationDefining";
+
+const officeGeofence = {
+  id: "duoc",
+  name: "Duoc Sede San Joaquin",
+  latitude: -33.500618,
+  longitude: -70.616733,
+  radius: 100, 
+};
+
 
 const AttendanceMap = lazy(() => import("./AttendanceMap.tsx"));
 
@@ -141,14 +151,41 @@ export default function MarcajePage() {
         lng = pos.coords.longitude;
         accuracy = pos.coords.accuracy;
         setGeo({ status: "success", lat, lng, accuracy });
+        
       } else {
         setGeo({ status: "denied" });
       }
     }
+console.log("POS:", lat, lng);
 
-    recordAttendance({ type: nextType, latitude: lat, longitude: lng, accuracy, shiftId: activeShift?._id });
-    toast.success(nextType === "checkin" ? "Entrada registrada exitosamente" : "Salida registrada exitosamente");
-    setRecording(false);
+let inside: boolean | undefined = undefined;
+
+if (lat !== undefined && lng !== undefined) {
+  inside = isInsideGeofence(lat, lng, officeGeofence);
+}
+if (inside === false) {
+  toast.error("No puedes marcar: estás fuera de la ubicación permitida");
+  setRecording(false);
+  return;
+}
+recordAttendance({
+  type: nextType,
+  latitude: lat,
+  longitude: lng,
+  accuracy,
+  shiftId: activeShift?._id,
+  insideGeofence: inside,
+  geofenceId: officeGeofence.id,
+  geofenceName: officeGeofence.name,
+});
+
+   toast.success(
+  inside === true
+    ? "Marcaje dentro de la ubicación"
+    : "Marcaje sin verificación de ubicación"
+);
+
+setRecording(false);
   };
 
   const now = new Date();
@@ -172,7 +209,18 @@ export default function MarcajePage() {
           {latest ? <p className="text-xs text-muted-foreground">Último {latest.type === "checkin" ? "entrada" : "salida"}: {formatTimestamp(latest.timestamp).time} — {formatTimestamp(latest.timestamp).date}</p> : <p className="text-xs text-muted-foreground">Sin registros hoy</p>}
         </div>
       </div>
-
+      {geo.status === "success" && (
+        <div className="w-full h-56 rounded-2xl overflow-hidden border">
+          <Suspense fallback={<Skeleton className="h-full w-full" />}>
+            <AttendanceMap
+              lat={geo.lat}
+              lng={geo.lng}
+              label="ubicacion"
+              className="h-full w-full"
+            />
+          </Suspense>
+        </div>
+      )}
       <motion.div whileTap={{ scale: 0.97 }}>
         <button onClick={handleRecord} disabled={recording} className={cn("w-full rounded-3xl py-8 flex flex-col items-center justify-center gap-3 transition-all shadow-lg font-black text-xl border-0 outline-none", nextType === "checkin" ? "bg-green-500 hover:bg-green-600 text-white shadow-green-200 dark:shadow-green-900" : "bg-rose-500 hover:bg-rose-600 text-white shadow-rose-200 dark:shadow-rose-900")}>
           {recording ? (<><Loader2 className="w-12 h-12 animate-spin" /><span>{geo.status === "loading" ? "Obteniendo ubicación..." : "Registrando..."}</span></>) : (<>{nextType === "checkin" ? <LogIn className="w-14 h-14" strokeWidth={2} /> : <LogOut className="w-14 h-14" strokeWidth={2} />}<span>{nextType === "checkin" ? "REGISTRAR ENTRADA" : "REGISTRAR SALIDA"}</span><span className="text-sm font-normal opacity-80 flex items-center gap-1"><Navigation className="w-3.5 h-3.5" />Con geolocalización automática</span></>)}

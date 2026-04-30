@@ -56,3 +56,29 @@ export async function deleteAttendanceRecord(uid: string, attendanceId: string) 
   const ref = doc(db, "users", uid, "attendance", attendanceId);
   await deleteDoc(ref);
 }
+
+
+import { isInsideGeofence, type geoUbicacion } from "@/lib/firebase/locationDefining";
+
+const officeGeofence: geoUbicacion = {
+  id: "duoc",
+  name: "Duoc Sede San Joaquin",
+  latitude: -33.500618,
+  longitude: -70.616733,
+  radius: 100, 
+};
+
+export async function checkInWithGeofence(uid: string, userLat: number, userLng: number) {
+  // Ejemplo
+  const inside = isInsideGeofence(userLat, userLng, officeGeofence);
+
+  await createAttendanceRecord(uid, {
+    type: "checkin",
+    timestamp: new Date().toISOString(),
+    latitude: userLat,
+    longitude: userLng, 
+    insideGeofence: inside,
+    geofenceId: officeGeofence.id,
+    geofenceName: officeGeofence.name,
+  });
+}
