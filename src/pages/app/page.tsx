@@ -12,9 +12,6 @@ import ShiftFormDialog from "./_components/ShiftFormDialog.tsx";
 import MarcajePage from "./marcaje/index.tsx";
 import FaceScanner from "./facescanner.tsx";
 
-// 🔥 NUEVO
-import { getAuth } from "firebase/auth";
-
 type Tab = "turnos" | "marcaje" | "reconocimiento";
 
 export default function AppPage() {
@@ -25,13 +22,10 @@ export default function AppPage() {
   const [editShift, setEditShift] = useState<Shift | null>(null);
   const [initialized, setInitialized] = useState(false);
 
-  // 🔥 UID del usuario
-  const auth = getAuth();
-  const uid = auth.currentUser?.uid || "";
-
   useEffect(() => {
     if (shifts !== undefined && !initialized) {
       setInitialized(true);
+
       if (shifts.length === 0) {
         initDefaultShifts();
       }
@@ -44,14 +38,13 @@ export default function AppPage() {
   const tabs = [
     { id: "turnos", label: "Mis Turnos", Icon: AlarmClock },
     { id: "marcaje", label: "Marcaje", Icon: ClipboardCheck },
-    { id: "reconocimiento", label: "Reconocimiento", Icon: Camera }, // 🔥 NUEVO
+    { id: "reconocimiento", label: "Reconocimiento", Icon: Camera },
   ] as const;
 
   return (
     <div className="min-h-screen bg-background">
       <AppHeader activeShift={activeShift} />
 
-      {/* Tab bar */}
       <nav className="sticky top-[73px] z-20 bg-background/95 backdrop-blur border-b border-border">
         <div className="max-w-2xl mx-auto px-4">
           <div className="flex gap-1 py-2">
@@ -76,8 +69,6 @@ export default function AppPage() {
 
       <main className="max-w-2xl mx-auto px-4 py-6 pb-24">
         <AnimatePresence mode="wait">
-
-          {/* TURNOS */}
           {tab === "turnos" && (
             <motion.div
               key="turnos"
@@ -92,11 +83,11 @@ export default function AppPage() {
                 <ActiveShiftBanner
                   activeShift={activeShift}
                   totalShifts={sortedShifts.length}
-                  activeAlarms={alarms.filter(
-                    (a) =>
-                      a.enabled &&
-                      a.shiftId === activeShift?._id
-                  ).length}
+                  activeAlarms={
+                    alarms.filter(
+                      (a) => a.enabled && a.shiftId === activeShift?._id
+                    ).length
+                  }
                 />
               )}
 
@@ -119,7 +110,6 @@ export default function AppPage() {
             </motion.div>
           )}
 
-          {/* MARCAJE */}
           {tab === "marcaje" && (
             <motion.div
               key="marcaje"
@@ -131,7 +121,6 @@ export default function AppPage() {
             </motion.div>
           )}
 
-     
           {tab === "reconocimiento" && (
             <motion.div
               key="reconocimiento"
@@ -139,17 +128,13 @@ export default function AppPage() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 10 }}
             >
-              <FaceScanner uid={uid} />
+              <FaceScanner />
             </motion.div>
           )}
-
         </AnimatePresence>
       </main>
 
-      <ShiftFormDialog
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-      />
+      <ShiftFormDialog open={createOpen} onClose={() => setCreateOpen(false)} />
 
       {editShift && (
         <ShiftFormDialog

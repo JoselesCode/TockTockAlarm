@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/use-auth";
 import {
   captureImage,
   getFaceDescriptor,
@@ -8,11 +9,10 @@ import {
   compareFaces,
 } from "@/lib/firebase/face";
 
-type Props = {
-  uid: string;
-};
+const FaceScanner: React.FC = () => {
+  const { user, isAuthenticated, isLoading } = useAuth();
+  const uid = user?.uid ?? "";
 
-const FaceScanner: React.FC<Props> = ({ uid }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const [status, setStatus] = useState("Iniciando cámara...");
@@ -21,38 +21,56 @@ const FaceScanner: React.FC<Props> = ({ uid }) => {
   const [faceRegistered, setFaceRegistered] = useState(false);
 
   useEffect(() => {
-    checkExistingFace();
     startCamera();
 
     return () => {
       stopCamera();
     };
-  }, [uid]);
+  }, []);
+
+  useEffect(() => {
+    if (!isLoading) {
+      checkExistingFace();
+    }
+  }, [uid, isLoading]);
 
   const checkExistingFace = async () => {
-    if (!uid) {
-      setStatus("❌ Usuario no autenticado");
+    if (isLoading) {
+      setStatus("Cargando usuario...");
       return;
     }
 
-    const stored = await getStoredDescriptor(uid);
-
-    if (stored) {
-      setFaceRegistered(true);
-      setStatus("✅ Ya tienes un rostro registrado");
-    } else {
+    if (!isAuthenticated || !uid) {
+      setStatus("❌ Usuario no autenticado");
       setFaceRegistered(false);
-      setStatus("No tienes rostro registrado");
+      return;
+    }
+
+    try {
+      const stored = await getStoredDescriptor(uid);
+
+      if (stored) {
+        setFaceRegistered(true);
+        setStatus("✅ Ya tienes un rostro registrado");
+      } else {
+        setFaceRegistered(false);
+        setStatus("No tienes rostro registrado");
+      }
+    } catch (error) {
+      console.error("Error revisando rostro:", error);
+      setStatus("❌ Error al revisar el rostro registrado");
     }
   };
 
   const startCamera = async () => {
     try {
+      setStatus("Solicitando permiso de cámara...");
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: "user",
-          width: 640,
-          height: 480,
+          width: { ideal: 640 },
+          height: { ideal: 480 },
         },
         audio: false,
       });
@@ -60,14 +78,15 @@ const FaceScanner: React.FC<Props> = ({ uid }) => {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
 
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current?.play();
+        videoRef.current.onloadedmetadata = async () => {
+          await videoRef.current?.play();
           setCameraReady(true);
           setStatus("📷 Cámara activa");
         };
       }
     } catch (error) {
-      console.error(error);
+      console.error("Error cámara:", error);
+      setCameraReady(false);
       setStatus("❌ No se pudo acceder a la cámara");
     }
   };
@@ -90,8 +109,13 @@ const FaceScanner: React.FC<Props> = ({ uid }) => {
     try {
       setLoading(true);
 
-      if (!uid) throw new Error("Usuario no autenticado");
-      if (!cameraReady) throw new Error("La cámara no está lista");
+      if (!isAuthenticated || !uid) {
+        throw new Error("Usuario no autenticado");
+      }
+
+      if (!cameraReady || !videoRef.current) {
+        throw new Error("La cámara no está lista");
+      }
 
       const existing = await getStoredDescriptor(uid);
 
@@ -102,7 +126,7 @@ const FaceScanner: React.FC<Props> = ({ uid }) => {
 
       setStatus("📸 Capturando rostro...");
 
-      const image = await captureImage(videoRef.current!);
+      const image = await captureImage(videoRef.current);
       const descriptor = await getFaceDescriptor(image);
 
       await saveFaceDescriptor(uid, descriptor);
@@ -110,7 +134,7 @@ const FaceScanner: React.FC<Props> = ({ uid }) => {
       setFaceRegistered(true);
       setStatus("✅ Rostro registrado correctamente");
     } catch (error: any) {
-      console.error(error);
+      console.error("Error registrando rostro:", error);
       setStatus(`❌ ${error.message}`);
     } finally {
       setLoading(false);
@@ -121,8 +145,13 @@ const FaceScanner: React.FC<Props> = ({ uid }) => {
     try {
       setLoading(true);
 
-      if (!uid) throw new Error("Usuario no autenticado");
-      if (!cameraReady) throw new Error("La cámara no está lista");
+      if (!isAuthenticated || !uid) {
+        throw new Error("Usuario no autenticado");
+      }
+
+      if (!cameraReady || !videoRef.current) {
+        throw new Error("La cámara no está lista");
+      }
 
       setStatus("🔍 Verificando rostro...");
 
@@ -133,7 +162,7 @@ const FaceScanner: React.FC<Props> = ({ uid }) => {
         throw new Error("No hay rostro registrado");
       }
 
-      const image = await captureImage(videoRef.current!);
+      const image = await captureImage(videoRef.current);
       const newDescriptor = await getFaceDescriptor(image);
 
       const match = compareFaces(stored, newDescriptor);
@@ -144,7 +173,7 @@ const FaceScanner: React.FC<Props> = ({ uid }) => {
         setStatus("❌ Rostro no coincide");
       }
     } catch (error: any) {
-      console.error(error);
+      console.error("Error verificando rostro:", error);
       setStatus(`❌ ${error.message}`);
     } finally {
       setLoading(false);
@@ -175,14 +204,14 @@ const FaceScanner: React.FC<Props> = ({ uid }) => {
       <div className="flex gap-2">
         <Button
           onClick={handleRegister}
-          disabled={loading || !cameraReady || faceRegistered}
+          disabled={loading || isLoading || !cameraReady || faceRegistered}
         >
-          Registrar Rostro
+          {loading ? "Procesando..." : "Registrar Rostro"}
         </Button>
 
         <Button
           onClick={handleVerify}
-          disabled={loading || !cameraReady || !faceRegistered}
+          disabled={loading || isLoading || !cameraReady || !faceRegistered}
           variant="secondary"
         >
           Verificar

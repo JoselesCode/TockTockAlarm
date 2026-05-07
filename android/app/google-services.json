@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "469260075255",
+    "project_id": "tocktockalarm",
+    "storage_bucket": "tocktockalarm.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:469260075255:android:047adc5abb51c98eb213f2",
+        "android_client_info": {
+          "package_name": "cl.tocktockalarm.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "469260075255-hudpgg1ipfiuaf01deej74g8bmcgp2gi.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAnh5lBO5VayhyrjrKfNczMvE05B8QpVnU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "469260075255-hudpgg1ipfiuaf01deej74g8bmcgp2gi.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
