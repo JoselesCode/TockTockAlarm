@@ -20,6 +20,7 @@ export type FirestoreUserProfile = {
   photoURL?: string | null;
   role: UserRole;
   status: "active" | "inactive";
+  faceDescriptor?: number[];
   createdAt?: unknown;
   updatedAt?: unknown;
 };
@@ -116,4 +117,15 @@ export async function updateUserStatus(
     console.error("Error actualizando estado:", error);
     throw error;
   }
+}
+
+export async function captureImage(video: HTMLVideoElement): Promise<string> {
+  const canvas = document.createElement("canvas");
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+
+  const ctx = canvas.getContext("2d");
+  ctx?.drawImage(video, 0, 0);
+
+  return canvas.toDataURL("image/jpeg");
 }
