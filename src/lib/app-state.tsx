@@ -17,6 +17,11 @@ import {
   deleteAttendanceRecord,
   getUserAttendance,
 } from "@/lib/firebase/attendance";
+import {
+  cancelAlarmNotification,
+  scheduleAlarmNotification,
+  syncAlarmNotifications,
+} from "@/lib/native-notifications";
 
 export type Shift = {
   _id: string;
@@ -29,6 +34,9 @@ export type Shift = {
   isActive: boolean;
 };
 
+export type AlarmSoundMode = "suave" | "normal" | "fuerte";
+export type AlarmVibrationMode = "suave" | "normal" | "fuerte";
+
 export type Alarm = {
   _id: string;
   shiftId: string;
@@ -36,6 +44,8 @@ export type Alarm = {
   time: string;
   days: number[];
   enabled: boolean;
+  soundMode?: AlarmSoundMode;
+  vibrationMode?: AlarmVibrationMode;
 };
 
 export type AttendanceRecord = {
@@ -68,9 +78,7 @@ type AppStateValue = {
   updateAlarm: (id: string, input: Partial<Omit<Alarm, "_id" | "shiftId">>) => Promise<void>;
   removeAlarm: (id: string) => Promise<void>;
   getAlarmsByShift: (shiftId: string) => Alarm[];
-  recordAttendance: (
-    input: Omit<AttendanceRecord, "_id" | "timestamp">
-  ) => Promise<void>;
+  recordAttendance: (input: Omit<AttendanceRecord, "_id" | "timestamp">) => Promise<void>;
   removeAttendance: (id: string) => Promise<void>;
 };
 
@@ -97,6 +105,8 @@ function mapAlarm(alarm: any): Alarm {
     time: alarm.time,
     days: alarm.days ?? [],
     enabled: alarm.enabled,
+    soundMode: alarm.soundMode ?? "normal",
+    vibrationMode: alarm.vibrationMode ?? "normal",
   };
 }
 
@@ -178,9 +188,15 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
           getUserAttendance(uidValue),
         ]);
 
-        setShifts(loadedShifts.map(mapShift));
-        setAlarms(loadedAlarms.map(mapAlarm));
-        setAttendance(loadedAttendance.map(mapAttendance));
+        const mappedShifts = loadedShifts.map(mapShift);
+        const mappedAlarms = loadedAlarms.map(mapAlarm);
+        const mappedAttendance = loadedAttendance.map(mapAttendance);
+
+        setShifts(mappedShifts);
+        setAlarms(mappedAlarms);
+        setAttendance(mappedAttendance);
+
+        await syncAlarmNotifications(mappedAlarms, mappedShifts);
       } catch (error) {
         console.error("Error cargando datos desde Firestore:", error);
       }
@@ -218,7 +234,10 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         await updateUserShift(uidValue, id, input);
 
         const updatedShifts = await getUserShifts(uidValue);
-        setShifts(updatedShifts.map(mapShift));
+        const mappedShifts = updatedShifts.map(mapShift);
+
+        setShifts(mappedShifts);
+        await syncAlarmNotifications(alarms, mappedShifts);
       },
 
       removeShift: async (id) => {
@@ -229,6 +248,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
         for (const alarm of alarmsToDelete) {
           if (alarm._id) {
+            const mappedAlarm = mapAlarm(alarm);
+            await cancelAlarmNotification(mappedAlarm);
             await deleteUserAlarm(uidValue, alarm._id);
           }
         }
@@ -252,8 +273,13 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
           getUserAlarms(uidValue),
         ]);
 
-        setShifts(finalShifts.map(mapShift));
-        setAlarms(finalAlarms.map(mapAlarm));
+        const mappedShifts = finalShifts.map(mapShift);
+        const mappedAlarms = finalAlarms.map(mapAlarm);
+
+        setShifts(mappedShifts);
+        setAlarms(mappedAlarms);
+
+        await syncAlarmNotifications(mappedAlarms, mappedShifts);
       },
 
       setShiftActive: async (id, isActive) => {
@@ -274,7 +300,10 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         }
 
         const updatedShifts = await getUserShifts(uidValue);
-        setShifts(updatedShifts.map(mapShift));
+        const mappedShifts = updatedShifts.map(mapShift);
+
+        setShifts(mappedShifts);
+        await syncAlarmNotifications(alarms, mappedShifts);
       },
 
       initDefaultShifts: async () => {
@@ -283,7 +312,9 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         const existingShifts = await getUserShifts(uidValue);
 
         if (existingShifts.length > 0) {
-          setShifts(existingShifts.map(mapShift));
+          const mappedShifts = existingShifts.map(mapShift);
+          setShifts(mappedShifts);
+          await syncAlarmNotifications(alarms, mappedShifts);
           return;
         }
 
@@ -294,7 +325,10 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         }
 
         const loadedShifts = await getUserShifts(uidValue);
-        setShifts(loadedShifts.map(mapShift));
+        const mappedShifts = loadedShifts.map(mapShift);
+
+        setShifts(mappedShifts);
+        await syncAlarmNotifications(alarms, mappedShifts);
       },
 
       createAlarm: async (input) => {
@@ -306,25 +340,56 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         });
 
         const updatedAlarms = await getUserAlarms(uidValue);
-        setAlarms(updatedAlarms.map(mapAlarm));
+        const mappedAlarms = updatedAlarms.map(mapAlarm);
+
+        setAlarms(mappedAlarms);
+
+        const newAlarm = mappedAlarms[mappedAlarms.length - 1];
+        const shift = shifts.find((s) => s._id === newAlarm?.shiftId);
+
+        if (newAlarm) {
+          await scheduleAlarmNotification(newAlarm, shift);
+        }
       },
 
       updateAlarm: async (id, input) => {
         if (!uidValue) return;
 
+        const oldAlarm = alarms.find((a) => a._id === id);
+
+        if (oldAlarm) {
+          await cancelAlarmNotification(oldAlarm);
+        }
+
         await updateUserAlarm(uidValue, id, input);
 
         const updatedAlarms = await getUserAlarms(uidValue);
-        setAlarms(updatedAlarms.map(mapAlarm));
+        const mappedAlarms = updatedAlarms.map(mapAlarm);
+        const updatedAlarm = mappedAlarms.find((a) => a._id === id);
+        const shift = shifts.find((s) => s._id === updatedAlarm?.shiftId);
+
+        setAlarms(mappedAlarms);
+
+        if (updatedAlarm?.enabled) {
+          await scheduleAlarmNotification(updatedAlarm, shift);
+        }
       },
 
       removeAlarm: async (id) => {
         if (!uidValue) return;
 
+        const alarmToDelete = alarms.find((a) => a._id === id);
+
+        if (alarmToDelete) {
+          await cancelAlarmNotification(alarmToDelete);
+        }
+
         await deleteUserAlarm(uidValue, id);
 
         const updatedAlarms = await getUserAlarms(uidValue);
-        setAlarms(updatedAlarms.map(mapAlarm));
+        const mappedAlarms = updatedAlarms.map(mapAlarm);
+
+        setAlarms(mappedAlarms);
       },
 
       getAlarmsByShift: (shiftId) => alarms.filter((a) => a.shiftId === shiftId),
@@ -360,8 +425,10 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
 export function useAppState() {
   const ctx = useContext(AppStateContext);
+
   if (!ctx) {
     throw new Error("useAppState must be used within AppStateProvider");
   }
+
   return ctx;
 }
