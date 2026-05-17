@@ -26,7 +26,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-const SOURCE = "seed-demo-abril-mayo-v2";
+const SOURCE = "seed-demo-abril-mayo-v3";
 const DELETE_OLD_SEED_DATA = true;
 
 const workers = [
@@ -75,6 +75,7 @@ async function deleteOldSeedData() {
     "seed-demo",
     "seed-demo-abril-mayo",
     "seed-demo-abril-mayo-v2",
+    "seed-demo-abril-mayo-v3",
   ];
 
   let deleted = 0;
@@ -101,8 +102,8 @@ async function seedAttendance() {
     await deleteOldSeedData();
   }
 
-  const startDate = new Date(2026, 3, 1);
-  const endDate = new Date(2026, 4, 12);
+  const startDate = new Date(2026, 3, 1); // 01 abril 2026
+  const endDate = new Date(2026, 4, 31); // 31 mayo 2026
 
   let total = 0;
 
@@ -113,6 +114,7 @@ async function seedAttendance() {
   ) {
     const day = currentDate.getDay();
 
+    // No genera registros los domingos
     if (day === 0) continue;
 
     for (const worker of workers) {
