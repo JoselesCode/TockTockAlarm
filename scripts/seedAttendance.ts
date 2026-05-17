@@ -6,6 +6,11 @@ import {
   getFirestore,
   collection,
   addDoc,
+  getDocs,
+  query,
+  where,
+  deleteDoc,
+  doc,
   Timestamp,
 } from "firebase/firestore";
 
@@ -20,6 +25,9 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+
+const SOURCE = "seed-demo-abril-mayo-v2";
+const DELETE_OLD_SEED_DATA = true;
 
 const workers = [
   { id: "worker_001", name: "Jose Antonio Diaz" },
@@ -46,21 +54,55 @@ function randomNumber(min: number, max: number) {
 
 function addMinutesToTime(time: string, minutes: number) {
   const [hour, minute] = time.split(":").map(Number);
+  const date = new Date(2026, 0, 1, hour, minute);
+  date.setMinutes(date.getMinutes() + minutes);
 
-  const date = new Date();
-  date.setHours(hour);
-  date.setMinutes(minute + minutes);
-
-  return date.toTimeString().slice(0, 5);
+  return `${String(date.getHours()).padStart(2, "0")}:${String(
+    date.getMinutes()
+  ).padStart(2, "0")}`;
 }
 
-function formatDate(date: Date) {
-  return date.toISOString().split("T")[0];
+function formatDateLocal(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+async function deleteOldSeedData() {
+  const oldSources = [
+    "seed-demo",
+    "seed-demo-abril-mayo",
+    "seed-demo-abril-mayo-v2",
+  ];
+
+  let deleted = 0;
+
+  for (const source of oldSources) {
+    const q = query(
+      collection(db, "attendanceRecords"),
+      where("source", "==", source)
+    );
+
+    const snapshot = await getDocs(q);
+
+    for (const document of snapshot.docs) {
+      await deleteDoc(doc(db, "attendanceRecords", document.id));
+      deleted++;
+    }
+  }
+
+  console.log(`🗑️ Registros seed eliminados: ${deleted}`);
 }
 
 async function seedAttendance() {
-  const startDate = new Date("2026-03-01");
-  const endDate = new Date("2026-05-03");
+  if (DELETE_OLD_SEED_DATA) {
+    await deleteOldSeedData();
+  }
+
+  const startDate = new Date(2026, 3, 1);
+  const endDate = new Date(2026, 4, 12);
 
   let total = 0;
 
@@ -75,7 +117,6 @@ async function seedAttendance() {
 
     for (const worker of workers) {
       const shift = shifts[randomNumber(0, shifts.length - 1)];
-
       const probability = Math.random();
 
       let status = "";
@@ -84,66 +125,37 @@ async function seedAttendance() {
       let checkInTime: string | null = null;
       let checkOutTime: string | null = null;
 
-      if (probability < 0.65) {
+      if (probability < 0.68) {
         status = "A tiempo";
-
-        checkInTime = addMinutesToTime(
-          shift.start,
-          randomNumber(-5, 4)
-        );
-
-        checkOutTime = addMinutesToTime(
-          shift.end,
-          randomNumber(0, 10)
-        );
-      } else if (probability < 0.85) {
+        checkInTime = addMinutesToTime(shift.start, randomNumber(-5, 4));
+        checkOutTime = addMinutesToTime(shift.end, randomNumber(0, 10));
+      } else if (probability < 0.86) {
         status = "Atrasado";
-
         lateMinutes = randomNumber(6, 35);
-
-        checkInTime = addMinutesToTime(
-          shift.start,
-          lateMinutes
-        );
-
-        checkOutTime = addMinutesToTime(
-          shift.end,
-          randomNumber(0, 15)
-        );
-      } else if (probability < 0.93) {
+        checkInTime = addMinutesToTime(shift.start, lateMinutes);
+        checkOutTime = addMinutesToTime(shift.end, randomNumber(0, 15));
+      } else if (probability < 0.94) {
         status = "Ausente";
-      } else if (probability < 0.97) {
+      } else if (probability < 0.98) {
         status = "Pendiente";
       } else {
         status = "Incompleto";
-
-        checkInTime = addMinutesToTime(
-          shift.start,
-          randomNumber(0, 15)
-        );
+        checkInTime = addMinutesToTime(shift.start, randomNumber(0, 15));
       }
 
       await addDoc(collection(db, "attendanceRecords"), {
         userId: worker.id,
         workerName: worker.name,
-
-        date: formatDate(currentDate),
-
+        date: formatDateLocal(currentDate),
         shiftName: shift.name,
-
         scheduledStart: shift.start,
         scheduledEnd: shift.end,
-
         checkInTime,
         checkOutTime,
-
         status,
         lateMinutes,
-
         location: "CD Refrigerados Macul",
-
-        source: "seed-demo",
-
+        source: SOURCE,
         createdAt: Timestamp.now(),
       });
 
@@ -156,7 +168,7 @@ async function seedAttendance() {
 
 seedAttendance()
   .then(() => {
-    console.log("🔥 Seed finalizado");
+    console.log("🔥 Seed finalizado correctamente");
     process.exit(0);
   })
   .catch((error) => {
