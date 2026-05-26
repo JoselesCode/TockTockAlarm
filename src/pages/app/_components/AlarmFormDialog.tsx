@@ -16,8 +16,13 @@ import {
   type Alarm,
   type AlarmSoundMode,
   type AlarmVibrationMode,
+  type AlarmToneMode,
   useAppState,
 } from "@/lib/app-state.tsx";
+import {
+  playAlarmPreview,
+  preloadAlarmTones,
+} from "@/lib/alarm-preview";
 
 type Props = {
   open: boolean;
@@ -29,16 +34,34 @@ type Props = {
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
 const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0"));
 
-const SOUND_OPTIONS: { value: AlarmSoundMode; label: string; description: string }[] = [
+const SOUND_OPTIONS: {
+  value: AlarmSoundMode;
+  label: string;
+  description: string;
+}[] = [
   { value: "suave", label: "Suave", description: "Notificación discreta" },
   { value: "normal", label: "Normal", description: "Recordatorio estándar" },
   { value: "fuerte", label: "Fuerte", description: "Máxima prioridad" },
 ];
 
-const VIBRATION_OPTIONS: { value: AlarmVibrationMode; label: string; description: string }[] = [
+const VIBRATION_OPTIONS: {
+  value: AlarmVibrationMode;
+  label: string;
+  description: string;
+}[] = [
   { value: "suave", label: "Suave", description: "Vibración corta" },
   { value: "normal", label: "Normal", description: "Vibración estándar" },
   { value: "fuerte", label: "Fuerte", description: "Vibración intensa" },
+];
+
+const TONE_OPTIONS: {
+  value: AlarmToneMode;
+  label: string;
+  description: string;
+}[] = [
+  { value: "alarma01", label: "Alarma 01", description: "Clásico" },
+  { value: "alarma02", label: "Alarma 02", description: "Digital" },
+  { value: "alarma03", label: "Alarma 03", description: "Intenso" },
 ];
 
 export default function AlarmFormDialog({
@@ -54,11 +77,17 @@ export default function AlarmFormDialog({
   const [minute, setMinute] = useState("00");
   const [days, setDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [soundMode, setSoundMode] = useState<AlarmSoundMode>("normal");
-  const [vibrationMode, setVibrationMode] = useState<AlarmVibrationMode>("normal");
+  const [vibrationMode, setVibrationMode] =
+    useState<AlarmVibrationMode>("normal");
+  const [toneMode, setToneMode] = useState<AlarmToneMode>("alarma01");
 
   const time = useMemo(() => `${hour}:${minute}`, [hour, minute]);
 
   useEffect(() => {
+    if (!open) return;
+
+    void preloadAlarmTones();
+
     if (editAlarm) {
       const [h = "06", m = "00"] = editAlarm.time.split(":");
 
@@ -68,6 +97,7 @@ export default function AlarmFormDialog({
       setDays(editAlarm.days);
       setSoundMode(editAlarm.soundMode ?? "normal");
       setVibrationMode(editAlarm.vibrationMode ?? "normal");
+      setToneMode(editAlarm.toneMode ?? "alarma01");
       return;
     }
 
@@ -77,12 +107,18 @@ export default function AlarmFormDialog({
     setDays([1, 2, 3, 4, 5]);
     setSoundMode("normal");
     setVibrationMode("normal");
+    setToneMode("alarma01");
   }, [editAlarm, open]);
 
   const toggleDay = (d: number) => {
     setDays((prev) =>
       prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort()
     );
+  };
+
+  const handleToneSelect = async (tone: AlarmToneMode) => {
+    setToneMode(tone);
+    await playAlarmPreview(tone);
   };
 
   const handleSubmit = async () => {
@@ -103,6 +139,7 @@ export default function AlarmFormDialog({
         days,
         soundMode,
         vibrationMode,
+        toneMode,
       });
 
       toast.success("Alarma actualizada");
@@ -114,6 +151,7 @@ export default function AlarmFormDialog({
         days,
         soundMode,
         vibrationMode,
+        toneMode,
       });
 
       toast.success("Alarma creada");
@@ -224,7 +262,9 @@ export default function AlarmFormDialog({
                   )}
                 >
                   <p className="font-black text-sm">{option.label}</p>
-                  <p className="text-[10px] opacity-80">{option.description}</p>
+                  <p className="text-[10px] opacity-80">
+                    {option.description}
+                  </p>
                 </button>
               ))}
             </div>
@@ -246,9 +286,59 @@ export default function AlarmFormDialog({
                   )}
                 >
                   <p className="font-black text-sm">{option.label}</p>
-                  <p className="text-[10px] opacity-80">{option.description}</p>
+                  <p className="text-[10px] opacity-80">
+                    {option.description}
+                  </p>
                 </button>
               ))}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold">Tono de alarma</Label>
+
+            <div className="grid grid-cols-3 gap-2">
+              {TONE_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => handleToneSelect(option.value)}
+                  className={cn(
+                    "rounded-2xl border-2 p-3 text-left transition-all relative overflow-hidden",
+                    toneMode === option.value
+                      ? "border-orange-500 bg-orange-500/15 shadow-[0_0_18px_rgba(249,115,22,0.35)]"
+                      : "bg-muted border-border text-muted-foreground hover:border-orange-500/40"
+                  )}
+                >
+                  <p
+                    className={cn(
+                      "font-black text-sm",
+                      toneMode === option.value
+                        ? "text-orange-400"
+                        : "text-foreground"
+                    )}
+                  >
+                    {option.label}
+                  </p>
+
+                  <p className="text-[10px] opacity-80">
+                    {option.description}
+                  </p>
+
+                  {toneMode === option.value && (
+                    <div className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse" />
+                  )}
+                </button>
+              ))}
+            </div>
+
+            <div className="rounded-xl bg-muted/40 border border-border p-3">
+              <p className="text-xs text-muted-foreground">
+                Tono seleccionado:
+                <span className="ml-1 font-bold text-orange-400 uppercase">
+                  {toneMode}
+                </span>
+              </p>
             </div>
           </div>
         </div>
@@ -257,6 +347,7 @@ export default function AlarmFormDialog({
           <Button variant="ghost" onClick={onClose}>
             Cancelar
           </Button>
+
           <Button onClick={handleSubmit} className="font-semibold">
             {editAlarm ? "Guardar cambios" : "Crear alarma"}
           </Button>

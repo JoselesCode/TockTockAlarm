@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "469260075255-ne51i991g7vg8g604uobnkklemdrh0v6.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "cl.tocktockalarm.app",
+            "certificate_hash": "c1dc3b5319c8e2a44787a9256b5771e1064e3188"
+          }
+        },
+        {
           "client_id": "469260075255-hudpgg1ipfiuaf01deej74g8bmcgp2gi.apps.googleusercontent.com",
           "client_type": 3
         }

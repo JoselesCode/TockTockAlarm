@@ -19,6 +19,7 @@ import {
 } from "@/lib/firebase/attendance";
 import {
   cancelAlarmNotification,
+  cancelAllAlarmNotifications,
   scheduleAlarmNotification,
   syncAlarmNotifications,
 } from "@/lib/native-notifications";
@@ -36,6 +37,7 @@ export type Shift = {
 
 export type AlarmSoundMode = "suave" | "normal" | "fuerte";
 export type AlarmVibrationMode = "suave" | "normal" | "fuerte";
+export type AlarmToneMode = "alarma01" | "alarma02" | "alarma03";
 
 export type Alarm = {
   _id: string;
@@ -46,6 +48,7 @@ export type Alarm = {
   enabled: boolean;
   soundMode?: AlarmSoundMode;
   vibrationMode?: AlarmVibrationMode;
+  toneMode?: AlarmToneMode;
 };
 
 export type AttendanceRecord = {
@@ -107,6 +110,7 @@ function mapAlarm(alarm: any): Alarm {
     enabled: alarm.enabled,
     soundMode: alarm.soundMode ?? "normal",
     vibrationMode: alarm.vibrationMode ?? "normal",
+    toneMode: alarm.toneMode ?? "alarma01",
   };
 }
 
@@ -178,8 +182,9 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         setShifts([]);
         setAlarms([]);
         setAttendance([]);
-        return;
-      }
+        await cancelAllAlarmNotifications();
+      return;
+    }
 
       try {
         const [loadedShifts, loadedAlarms, loadedAttendance] = await Promise.all([
