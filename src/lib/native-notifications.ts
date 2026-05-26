@@ -2,41 +2,38 @@ import { Capacitor } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
 import type { Alarm, Shift } from "@/lib/app-state";
 
-const CHANNELS = {
-  suave: "tocktockalarm_suave_v2",
-  normal: "tocktockalarm_normal_v2",
-  fuerte: "tocktockalarm_fuerte_v2",
-} as const;
-
 const ACTION_TYPE_ID = "TOCKTOCK_ALARM_ACTIONS";
+
+function getChannelId(alarm: Alarm) {
+  const soundMode = alarm.soundMode ?? "normal";
+  const toneMode = alarm.toneMode ?? "alarma01";
+  return `tocktockalarm_${soundMode}_${toneMode}_v5`;
+}
+
+function getToneFile(alarm: Alarm) {
+  const toneMode = alarm.toneMode ?? "alarma01";
+  return `${toneMode}.mp3`;
+}
 
 function makeNotificationId(alarmId: string, day: number) {
   let hash = day + 1;
+
   for (let i = 0; i < alarmId.length; i++) {
     hash = (hash * 31 + alarmId.charCodeAt(i)) | 0;
   }
+
   return Math.abs(hash);
 }
 
-function getNextDateForDayAndTime(day: number, time: string) {
-  const [hour, minute] = time.split(":").map(Number);
-  const now = new Date();
-
-  const target = new Date();
-  target.setHours(hour, minute, 0, 0);
-
-  const today = now.getDay();
-  let diff = day - today;
-
-  if (diff < 0 || (diff === 0 && target <= now)) {
-    diff += 7;
-  }
-
-  target.setDate(now.getDate() + diff);
-  return target;
+function getAlarmHour(time: string) {
+  return Number(time.split(":")[0]);
 }
 
-export async function setupAlarmNotifications() {
+function getAlarmMinute(time: string) {
+  return Number(time.split(":")[1]);
+}
+
+export async function setupAlarmNotifications(alarm?: Alarm) {
   if (!Capacitor.isNativePlatform()) return;
 
   const permission = await LocalNotifications.checkPermissions();
@@ -68,46 +65,45 @@ export async function setupAlarmNotifications() {
     ],
   });
 
-  await LocalNotifications.createChannel({
-    id: CHANNELS.suave,
-    name: "Alarmas suaves",
-    description: "Alarmas suaves de TockTockAlarm",
-    importance: 5,
-    visibility: 1,
-    vibration: true,
-    sound: "faaah.mp3",
-  });
+  if (alarm) {
+    await LocalNotifications.createChannel({
+      id: getChannelId(alarm),
+      name: `TockTockAlarm ${alarm.soundMode ?? "normal"} ${
+        alarm.toneMode ?? "alarma01"
+      }`,
+      description: "Canal personalizado de alarma",
+      importance: 5,
+      visibility: 1,
+      vibration: alarm.vibrationMode !== "suave",
+      sound: getToneFile(alarm),
+    });
+  }
+}
 
-  await LocalNotifications.createChannel({
-    id: CHANNELS.normal,
-    name: "Alarmas normales",
-    description: "Alarmas normales de TockTockAlarm",
-    importance: 5,
-    visibility: 1,
-    vibration: true,
-    sound: "faaah.mp3",
-  });
+export async function cancelAllAlarmNotifications() {
+  if (!Capacitor.isNativePlatform()) return;
 
-  await LocalNotifications.createChannel({
-    id: CHANNELS.fuerte,
-    name: "Alarmas fuertes",
-    description: "Alarmas fuertes de TockTockAlarm",
-    importance: 5,
-    visibility: 1,
-    vibration: true,
-    sound: "faaah.mp3",
-  });
+  const pending = await LocalNotifications.getPending();
+
+  if (pending.notifications.length > 0) {
+    await LocalNotifications.cancel({
+      notifications: pending.notifications.map((notification) => ({
+        id: notification.id,
+      })),
+    });
+  }
 }
 
 export async function scheduleAlarmNotification(alarm: Alarm, shift?: Shift) {
   if (!Capacitor.isNativePlatform()) return;
   if (!alarm.enabled) return;
+  if (shift && !shift.isActive) return;
 
-  await setupAlarmNotifications();
+  await setupAlarmNotifications(alarm);
 
   const days = alarm.days.length > 0 ? alarm.days : [new Date().getDay()];
-  const soundMode = alarm.soundMode ?? "normal";
-  const channelId = CHANNELS[soundMode];
+  const hour = getAlarmHour(alarm.time);
+  const minute = getAlarmMinute(alarm.time);
 
   await LocalNotifications.schedule({
     notifications: days.map((day) => ({
@@ -118,12 +114,16 @@ export async function scheduleAlarmNotification(alarm: Alarm, shift?: Shift) {
         alarm.label || "Sin etiqueta"
       }.`,
       summaryText: "Recordatorio de turno",
-      channelId,
+      channelId: getChannelId(alarm),
       actionTypeId: ACTION_TYPE_ID,
-      ongoing: true,
-      autoCancel: false,
+      ongoing: false,
+      autoCancel: true,
       schedule: {
-        at: getNextDateForDayAndTime(day, alarm.time),
+        on: {
+          weekday: day + 1,
+          hour,
+          minute,
+        },
         repeats: true,
         allowWhileIdle: true,
       },
@@ -143,7 +143,19 @@ export async function scheduleSnoozeNotification(
 ) {
   if (!Capacitor.isNativePlatform()) return;
 
-  await setupAlarmNotifications();
+  const defaultAlarm = {
+    _id: alarmId,
+    shiftId: shiftId ?? "",
+    label,
+    time: "00:00",
+    days: [],
+    enabled: true,
+    soundMode: "fuerte",
+    vibrationMode: "fuerte",
+    toneMode: "alarma01",
+  } as Alarm;
+
+  await setupAlarmNotifications(defaultAlarm);
 
   await LocalNotifications.schedule({
     notifications: [
@@ -151,10 +163,10 @@ export async function scheduleSnoozeNotification(
         id: Math.floor(Date.now() / 1000),
         title: "⏰ TockTockAlarm",
         body: `${label} · Pospuesta 5 minutos`,
-        channelId: CHANNELS.fuerte,
+        channelId: getChannelId(defaultAlarm),
         actionTypeId: ACTION_TYPE_ID,
-        ongoing: true,
-        autoCancel: false,
+        ongoing: false,
+        autoCancel: true,
         schedule: {
           at: new Date(Date.now() + 5 * 60 * 1000),
           allowWhileIdle: true,
@@ -184,14 +196,15 @@ export async function cancelAlarmNotification(alarm: Alarm) {
 export async function syncAlarmNotifications(alarms: Alarm[], shifts: Shift[]) {
   if (!Capacitor.isNativePlatform()) return;
 
-  await setupAlarmNotifications();
+  await cancelAllAlarmNotifications();
 
   for (const alarm of alarms) {
-    await cancelAlarmNotification(alarm);
+    if (!alarm.enabled) continue;
 
-    if (alarm.enabled) {
-      const shift = shifts.find((s) => s._id === alarm.shiftId);
-      await scheduleAlarmNotification(alarm, shift);
-    }
+    const shift = shifts.find((s) => s._id === alarm.shiftId);
+
+    if (!shift?.isActive) continue;
+
+    await scheduleAlarmNotification(alarm, shift);
   }
 }

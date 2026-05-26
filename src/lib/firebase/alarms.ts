@@ -11,6 +11,7 @@ import { db } from "@/lib/firebase";
 
 export type AlarmSoundMode = "suave" | "normal" | "fuerte";
 export type AlarmVibrationMode = "suave" | "normal" | "fuerte";
+export type AlarmToneMode = "alarma01" | "alarma02" | "alarma03";
 
 export type FirestoreAlarm = {
   _id?: string;
@@ -21,6 +22,7 @@ export type FirestoreAlarm = {
   enabled: boolean;
   soundMode?: AlarmSoundMode;
   vibrationMode?: AlarmVibrationMode;
+  toneMode?: AlarmToneMode;
 };
 
 export async function getUserAlarms(uid: string): Promise<FirestoreAlarm[]> {
@@ -43,6 +45,7 @@ export async function createUserAlarm(
     ...input,
     soundMode: input.soundMode ?? "normal",
     vibrationMode: input.vibrationMode ?? "normal",
+    toneMode: input.toneMode ?? "alarma01",
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
