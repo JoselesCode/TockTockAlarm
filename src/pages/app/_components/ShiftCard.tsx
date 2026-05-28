@@ -10,6 +10,7 @@ import {
   Plus,
   Power,
   Trash2,
+  Lock,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -115,7 +116,7 @@ function AlarmRow({
         className={cn(
           "flex items-center gap-4 rounded-2xl p-4 border transition-all",
           isAlarmActive
-            ? `${colors.bg} ${colors.border} border`
+            ? `${colors.bg} ${colors.border} border shadow-sm`
             : "bg-muted/40 border-border opacity-75"
         )}
       >
@@ -221,6 +222,7 @@ export default function ShiftCard({ shift, onEdit }: Props) {
   const colors = SHIFT_COLORS[shift.color] ?? SHIFT_COLORS["amber"];
   const enabledAlarms = alarms.filter((a) => a.enabled).length;
   const totalAlarms = alarms.length;
+  const isFixedShift = shift.isDefault || shift.canDelete === false;
 
   const handleToggleActive = async () => {
     await setShiftActive(shift._id, !shift.isActive);
@@ -233,9 +235,27 @@ export default function ShiftCard({ shift, onEdit }: Props) {
     }
   };
 
+  const handleDeleteClick = () => {
+    if (isFixedShift) {
+      toast.error("Acción no permitida: este turno fijo no se puede eliminar");
+      return;
+    }
+
+    setDeleteOpen(true);
+  };
+
   const handleDelete = async () => {
-    await removeShift(shift._id);
-    toast.success("Turno eliminado");
+    try {
+      if (isFixedShift) {
+        toast.error("Acción no permitida: este turno fijo no se puede eliminar");
+        return;
+      }
+
+      await removeShift(shift._id);
+      toast.success("Turno eliminado");
+    } catch {
+      toast.error("Acción no permitida: este turno fijo no se puede eliminar");
+    }
   };
 
   return (
@@ -244,11 +264,11 @@ export default function ShiftCard({ shift, onEdit }: Props) {
         className={cn(
           "rounded-2xl border-2 overflow-hidden transition-all",
           shift.isActive
-            ? `${colors.border} shadow-lg`
-            : "border-border shadow-sm"
+            ? `${colors.border} ${colors.bg} shadow-[0_0_22px_rgba(249,115,22,0.18)]`
+            : "border-border bg-card shadow-sm"
         )}
       >
-        <div className={cn("p-5", shift.isActive ? `${colors.bg}` : "bg-card")}>
+        <div className={cn("p-5", shift.isActive ? colors.bg : "bg-card")}>
           <div className="flex items-center gap-4">
             <div
               className={cn(
@@ -280,6 +300,13 @@ export default function ShiftCard({ shift, onEdit }: Props) {
                     ACTIVO
                   </span>
                 )}
+
+                {isFixedShift && (
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-muted text-muted-foreground inline-flex items-center gap-1">
+                    <Lock className="w-3 h-3" />
+                    FIJO
+                  </span>
+                )}
               </div>
 
               <p className="text-sm text-muted-foreground">
@@ -291,6 +318,12 @@ export default function ShiftCard({ shift, onEdit }: Props) {
                   ? "Sin alarmas"
                   : `${enabledAlarms} de ${totalAlarms} alarmas activas`}
               </p>
+
+              {shift.isActive && (
+                <p className="text-xs font-semibold mt-2 text-orange-500">
+                  Turno actual según rotación semanal
+                </p>
+              )}
             </div>
 
             <button
@@ -318,11 +351,20 @@ export default function ShiftCard({ shift, onEdit }: Props) {
               </button>
 
               <button
-                onClick={() => setDeleteOpen(true)}
-                className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-destructive px-2 py-1.5 rounded-lg hover:bg-destructive/10 transition-colors"
+                onClick={handleDeleteClick}
+                className={cn(
+                  "flex items-center gap-1.5 text-xs font-medium px-2 py-1.5 rounded-lg transition-colors",
+                  isFixedShift
+                    ? "text-muted-foreground hover:bg-muted"
+                    : "text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                )}
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                Eliminar
+                {isFixedShift ? (
+                  <Lock className="w-3.5 h-3.5" />
+                ) : (
+                  <Trash2 className="w-3.5 h-3.5" />
+                )}
+                {isFixedShift ? "Fijo" : "Eliminar"}
               </button>
             </div>
 
@@ -348,7 +390,10 @@ export default function ShiftCard({ shift, onEdit }: Props) {
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="overflow-hidden bg-card"
+              className={cn(
+                "overflow-hidden",
+                shift.isActive ? colors.bg : "bg-card"
+              )}
             >
               <div className="p-4 space-y-3">
                 {alarms.length === 0 ? (
