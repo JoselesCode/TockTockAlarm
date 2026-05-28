@@ -9,6 +9,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
+
 let modelsLoaded = false;
 const DESCRIPTOR_LENGTH = 128;
 
@@ -148,4 +149,19 @@ export function compareFaces(d1: number[], d2: number[]) {
   console.log("DISTANCIA:", distance);
 
   return distance < 0.55;
+}
+
+export async function deleteFaceDescriptor(uid: string) {
+  if (!uid) throw new Error("Usuario no autenticado");
+
+  const ref = doc(db, "users", uid);
+
+  await setDoc(
+    ref,
+    {
+      faceDescriptor: deleteField(),
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
 }

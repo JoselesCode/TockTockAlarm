@@ -7,6 +7,7 @@ import {
   saveFaceDescriptor,
   getStoredDescriptor,
   compareFaces,
+  deleteFaceDescriptor,
 } from "@/lib/firebase/face";
 
 const FaceScanner: React.FC = () => {
@@ -180,15 +181,32 @@ const FaceScanner: React.FC = () => {
     }
   };
 
+  const handleDeleteFace = async () => {
+    try {
+      setLoading(true);
+
+      if (!uid) throw new Error("Usuario no autenticado");
+
+      await deleteFaceDescriptor(uid);
+
+      setFaceRegistered(false);
+      setStatus("🗑️ Rostro eliminado correctamente");
+    } catch (error: any) {
+      console.error(error);
+      setStatus(`❌ ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="flex flex-col items-center gap-4">
       <h2 className="text-xl font-bold">Registro Facial</h2>
 
       <div className="flex items-center gap-2 text-sm">
         <span
-          className={`w-3 h-3 rounded-full ${
-            cameraReady ? "bg-green-500" : "bg-red-500"
-          }`}
+          className={`w-3 h-3 rounded-full ${cameraReady ? "bg-green-500" : "bg-red-500"
+            }`}
         />
         <span>{cameraReady ? "Cámara activa" : "Cámara apagada"}</span>
       </div>
@@ -215,6 +233,14 @@ const FaceScanner: React.FC = () => {
           variant="secondary"
         >
           Verificar
+        </Button>
+
+        <Button
+          onClick={handleDeleteFace}
+          disabled={loading || !faceRegistered}
+          variant="destructive"
+        >
+          Eliminar Rostro
         </Button>
       </div>
 

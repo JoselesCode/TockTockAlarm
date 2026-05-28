@@ -29,6 +29,14 @@ import { cn } from "@/lib/utils.ts";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 import { type AttendanceRecord, useAppState } from "@/lib/app-state.tsx";
 import { isInsideGeofence } from "@/lib/firebase/locationDefining";
+import { useRef } from "react";
+import { getAuth } from "firebase/auth";
+import {
+  captureImage,
+  getFaceDescriptor,
+  getStoredDescriptor,
+  compareFaces,
+} from "@/lib/firebase/face";
 
 const officeGeofence = {
   id: "duoc",
@@ -218,8 +226,10 @@ export default function MarcajePage() {
 
   const [geo, setGeo] = useState<GeoState>({ status: "idle" });
   const [recording, setRecording] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
   const [visibleCount, setVisibleCount] = useState(10);
-
+  const videoRef = useRef<HTMLVideoElement>(null);
   const results = useMemo(
     () => attendance.slice(0, visibleCount),
     [attendance, visibleCount]
@@ -251,60 +261,148 @@ export default function MarcajePage() {
     }
   }, []);
 
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "user",
+          width: 640,
+          height: 480,
+        },
+        audio: false,
+      });
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current?.play();
+          setCameraReady(true);
+        };
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("No se pudo acceder a la cámara");
+    }
+  };
+
+  const stopCamera = () => {
+    const stream = videoRef.current?.srcObject as MediaStream | null;
+
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop());
+    }
+
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+
+    setCameraReady(false);
+    setShowCamera(false);
+  };
+
   const handleRecord = async () => {
     setRecording(true);
-    setGeo({ status: "loading" });
+    setShowCamera(true);
 
-    let lat: number | undefined;
-    let lng: number | undefined;
-    let accuracy: number | undefined;
+    try {
+      await startCamera();
 
-    const pos = await getLocation();
+      const auth = getAuth();
+      const uid = auth.currentUser?.uid;
 
-    if (pos) {
-      lat = pos.coords.latitude;
-      lng = pos.coords.longitude;
-      accuracy = pos.coords.accuracy;
+      if (!uid) {
+        toast.error("Usuario no autenticado");
+        setRecording(false);
+        stopCamera();
+        return;
+      }
 
-      setGeo({
-        status: "success",
-        lat,
-        lng,
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      const stored = await getStoredDescriptor(uid);
+
+      if (!stored) {
+        toast.error("No tienes rostro registrado");
+        setRecording(false);
+        stopCamera();
+        return;
+      }
+
+      const image = await captureImage(videoRef.current!);
+      const newDescriptor = await getFaceDescriptor(image);
+
+      const match = compareFaces(stored, newDescriptor);
+
+      if (!match) {
+        toast.error("Rostro no coincide");
+        setRecording(false);
+        stopCamera();
+        return;
+      }
+
+      setGeo({ status: "loading" });
+
+      let lat: number | undefined;
+      let lng: number | undefined;
+      let accuracy: number | undefined;
+
+      if (!("geolocation" in navigator)) {
+        setGeo({ status: "unavailable" });
+      } else {
+        const pos = await getLocation();
+
+        if (pos) {
+          lat = pos.coords.latitude;
+          lng = pos.coords.longitude;
+          accuracy = pos.coords.accuracy;
+
+          setGeo({
+            status: "success",
+            lat,
+            lng,
+            accuracy,
+          });
+        } else {
+          setGeo({ status: "denied" });
+        }
+      }
+
+      let inside: boolean | undefined = undefined;
+
+      if (lat !== undefined && lng !== undefined) {
+        inside = isInsideGeofence(lat, lng, officeGeofence);
+      }
+
+      if (inside === false) {
+        toast.error("No puedes marcar: estás fuera de la ubicación permitida");
+        setRecording(false);
+        stopCamera();
+        return;
+      }
+
+      recordAttendance({
+        type: nextType,
+        latitude: lat,
+        longitude: lng,
         accuracy,
+        shiftId: activeShift?._id,
+        insideGeofence: inside,
+        geofenceId: officeGeofence.id,
+        geofenceName: officeGeofence.name,
       });
-    } else {
-      setGeo({ status: "denied" });
+
+      toast.success(
+        nextType === "checkin"
+          ? "Entrada registrada correctamente"
+          : "Salida registrada correctamente"
+      );
+    } catch (error) {
+      console.error(error);
+      toast.error("Error en el marcaje");
     }
 
-    let inside: boolean | undefined = undefined;
-
-    if (lat !== undefined && lng !== undefined) {
-      inside = isInsideGeofence(lat, lng, officeGeofence);
-    }
-
-    if (inside === false) {
-      toast.error("No puedes marcar: estás fuera de la ubicación permitida");
-      setRecording(false);
-      return;
-    }
-
-    recordAttendance({
-      type: nextType,
-      latitude: lat,
-      longitude: lng,
-      accuracy,
-      shiftId: activeShift?._id,
-      insideGeofence: inside,
-      geofenceId: officeGeofence.id,
-      geofenceName: officeGeofence.name,
-    });
-
-    toast.success(
-      inside === true
-        ? "Marcaje dentro de la ubicación"
-        : "Marcaje sin verificación de ubicación"
-    );
-
+    stopCamera();
     setRecording(false);
   };
 
@@ -399,6 +497,45 @@ export default function MarcajePage() {
       )}
 
       <motion.div whileTap={{ scale: 0.97 }}>
+        <AnimatePresence>
+          {showCamera && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+            >
+              <div className="bg-background rounded-3xl p-4 w-full max-w-md space-y-4">
+                <h2 className="text-xl font-black text-center">
+                  Verificación Facial
+                </h2>
+
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  muted
+                  playsInline
+                  className="w-full rounded-2xl border bg-black"
+                />
+
+                <p className="text-center text-sm text-muted-foreground">
+                  Mira a la cámara para validar tu identidad
+                </p>
+
+                <Button
+                  variant="destructive"
+                  className="w-full"
+                  onClick={() => {
+                    stopCamera();
+                    setRecording(false);
+                  }}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
         <button
           onClick={handleRecord}
           disabled={recording}
