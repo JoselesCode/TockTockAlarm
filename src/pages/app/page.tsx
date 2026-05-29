@@ -11,6 +11,7 @@ import ShiftCard from "./_components/ShiftCard.tsx";
 import ShiftFormDialog from "./_components/ShiftFormDialog.tsx";
 import MarcajePage from "./marcaje/index.tsx";
 import FaceScanner from "./facescanner.tsx";
+import WebAlarmBanner from "@/components/app/WebAlarmBanner";
 
 type Tab = "turnos" | "marcaje" | "reconocimiento";
 
@@ -143,6 +144,7 @@ export default function AppPage() {
           editShift={editShift}
         />
       )}
+      <WebAlarmBanner />
     </div>
   );
 }

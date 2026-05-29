@@ -4,6 +4,20 @@ import type { Alarm, Shift } from "@/lib/app-state";
 
 const ACTION_TYPE_ID = "TOCKTOCK_ALARM_ACTIONS";
 
+let webAlarmInterval: number | null = null;
+let currentWebAudio: HTMLAudioElement | null = null;
+
+export function stopCurrentWebAlarm() {
+  if (currentWebAudio) {
+    currentWebAudio.pause();
+    currentWebAudio.currentTime = 0;
+    currentWebAudio = null;
+  }
+
+  window.dispatchEvent(new CustomEvent("tocktock-alarm-stopped"));
+}
+const triggeredWebAlarms = new Set<string>();
+
 function getChannelId(alarm: Alarm) {
   const soundMode = alarm.soundMode ?? "normal";
   const toneMode = alarm.toneMode ?? "alarma01";
@@ -13,6 +27,11 @@ function getChannelId(alarm: Alarm) {
 function getToneFile(alarm: Alarm) {
   const toneMode = alarm.toneMode ?? "alarma01";
   return `${toneMode}.mp3`;
+}
+
+function getTonePath(alarm: Alarm) {
+  const toneMode = alarm.toneMode ?? "alarma01";
+  return `/sounds/${toneMode}.mp3`;
 }
 
 function makeNotificationId(alarmId: string, day: number) {
@@ -33,8 +52,103 @@ function getAlarmMinute(time: string) {
   return Number(time.split(":")[1]);
 }
 
+function getTodayKey(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+async function playWebAlarmSound(alarm: Alarm) {
+  try {
+    stopCurrentWebAlarm();
+
+    const audio = new Audio(getTonePath(alarm));
+
+    audio.volume =
+      alarm.soundMode === "suave"
+        ? 0.45
+        : alarm.soundMode === "fuerte"
+        ? 1
+        : 0.75;
+
+    audio.loop = true;
+
+    currentWebAudio = audio;
+
+    window.dispatchEvent(
+      new CustomEvent("tocktock-alarm-ringing", {
+        detail: {
+          alarmId: alarm._id,
+          label: alarm.label || "Alarma",
+          toneMode: alarm.toneMode ?? "alarma01",
+        },
+      })
+    );
+
+    await audio.play();
+  } catch (error) {
+    console.error("Error reproduciendo alarma web:", error);
+  }
+}
+
+export function stopWebAlarmScheduler() {
+  if (webAlarmInterval !== null) {
+    window.clearInterval(webAlarmInterval);
+    webAlarmInterval = null;
+  }
+}
+
+export function startWebAlarmScheduler(alarms: Alarm[], shifts: Shift[]) {
+  if (Capacitor.isNativePlatform()) return;
+
+  stopWebAlarmScheduler();
+
+  webAlarmInterval = window.setInterval(() => {
+    const now = new Date();
+    const currentDay = now.getDay();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const todayKey = getTodayKey(now);
+
+    for (const alarm of alarms) {
+      if (!alarm.enabled) continue;
+
+      const shift = shifts.find((item) => item._id === alarm.shiftId);
+      if (!shift?.isActive) continue;
+
+      const alarmDays = alarm.days.length > 0 ? alarm.days : [currentDay];
+
+      if (!alarmDays.includes(currentDay)) continue;
+
+      const alarmHour = getAlarmHour(alarm.time);
+      const alarmMinute = getAlarmMinute(alarm.time);
+
+      if (alarmHour !== currentHour || alarmMinute !== currentMinute) continue;
+
+      const triggerKey = `${alarm._id}-${todayKey}-${currentHour}-${currentMinute}`;
+
+      if (triggeredWebAlarms.has(triggerKey)) continue;
+
+      triggeredWebAlarms.add(triggerKey);
+
+      void playWebAlarmSound(alarm);
+
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification("⏰ TockTockAlarm", {
+          body: alarm.label || "Alarma de turno",
+          icon: "/icon/icon.png",
+        });
+      }
+    }
+  }, 5000);
+}
+
 export async function setupAlarmNotifications(alarm?: Alarm) {
-  if (!Capacitor.isNativePlatform()) return;
+  if (!Capacitor.isNativePlatform()) {
+    if ("Notification" in window && Notification.permission === "default") {
+      await Notification.requestPermission();
+    }
+
+    return;
+  }
 
   const permission = await LocalNotifications.checkPermissions();
 
@@ -81,7 +195,10 @@ export async function setupAlarmNotifications(alarm?: Alarm) {
 }
 
 export async function cancelAllAlarmNotifications() {
-  if (!Capacitor.isNativePlatform()) return;
+  if (!Capacitor.isNativePlatform()) {
+    stopWebAlarmScheduler();
+    return;
+  }
 
   const pending = await LocalNotifications.getPending();
 
@@ -194,7 +311,10 @@ export async function cancelAlarmNotification(alarm: Alarm) {
 }
 
 export async function syncAlarmNotifications(alarms: Alarm[], shifts: Shift[]) {
-  if (!Capacitor.isNativePlatform()) return;
+  if (!Capacitor.isNativePlatform()) {
+    startWebAlarmScheduler(alarms, shifts);
+    return;
+  }
 
   await cancelAllAlarmNotifications();
 

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, lazy, Suspense } from "react";
+import { useCallback, useMemo, useState, lazy, Suspense, useRef } from "react";
 import { toast } from "sonner";
 import {
   CheckCircle2,
@@ -29,7 +29,6 @@ import { cn } from "@/lib/utils.ts";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 import { type AttendanceRecord, useAppState } from "@/lib/app-state.tsx";
 import { isInsideGeofence } from "@/lib/firebase/locationDefining";
-import { useRef } from "react";
 import { getAuth } from "firebase/auth";
 import {
   captureImage,
@@ -79,7 +78,10 @@ function RecordCard({ record }: { record: AttendanceRecord }) {
   const { date, time } = formatTimestamp(record.timestamp);
   const isCheckIn = record.type === "checkin";
   const hasLocation =
-    record.latitude !== undefined && record.longitude !== undefined;
+    record.latitude !== undefined &&
+    record.latitude !== null &&
+    record.longitude !== undefined &&
+    record.longitude !== null;
 
   return (
     <>
@@ -159,7 +161,9 @@ function RecordCard({ record }: { record: AttendanceRecord }) {
           {showMap &&
             hasLocation &&
             record.latitude !== undefined &&
-            record.longitude !== undefined && (
+            record.latitude !== null &&
+            record.longitude !== undefined &&
+            record.longitude !== null && (
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: "auto", opacity: 1 }}
@@ -167,9 +171,7 @@ function RecordCard({ record }: { record: AttendanceRecord }) {
                 transition={{ duration: 0.25 }}
                 className="overflow-hidden mt-3"
               >
-                <Suspense
-                  fallback={<Skeleton className="h-48 w-full rounded-xl" />}
-                >
+                <Suspense fallback={<Skeleton className="h-48 w-full rounded-xl" />}>
                   <AttendanceMap
                     lat={record.latitude}
                     lng={record.longitude}
@@ -178,7 +180,7 @@ function RecordCard({ record }: { record: AttendanceRecord }) {
                   />
                 </Suspense>
 
-                {record.accuracy !== undefined && (
+                {record.accuracy !== undefined && record.accuracy !== null && (
                   <p className="text-xs text-muted-foreground mt-1.5 text-center">
                     Precisión: ±{Math.round(record.accuracy)}m
                   </p>
@@ -230,6 +232,7 @@ export default function MarcajePage() {
   const [cameraReady, setCameraReady] = useState(false);
   const [visibleCount, setVisibleCount] = useState(10);
   const videoRef = useRef<HTMLVideoElement>(null);
+
   const results = useMemo(
     () => attendance.slice(0, visibleCount),
     [attendance, visibleCount]
@@ -237,23 +240,53 @@ export default function MarcajePage() {
 
   const getLocation = useCallback(async () => {
     try {
-      const permission = await Geolocation.requestPermissions();
+      if (typeof window !== "undefined" && window.Capacitor?.isNativePlatform?.()) {
+        const permission = await Geolocation.requestPermissions();
 
-      if (
-        permission.location !== "granted" &&
-        permission.coarseLocation !== "granted"
-      ) {
-        setGeo({ status: "denied" });
-        return null;
+        if (
+          permission.location !== "granted" &&
+          permission.coarseLocation !== "granted"
+        ) {
+          setGeo({ status: "denied" });
+          return null;
+        }
+
+        const pos = await Geolocation.getCurrentPosition({
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        });
+
+        return {
+          coords: {
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            accuracy: pos.coords.accuracy ?? 0,
+          },
+        };
       }
 
-      const pos = await Geolocation.getCurrentPosition({
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
-      });
+      return await new Promise<GeolocationPosition | null>((resolve) => {
+        if (!navigator.geolocation) {
+          setGeo({ status: "unavailable" });
+          resolve(null);
+          return;
+        }
 
-      return pos;
+        navigator.geolocation.getCurrentPosition(
+          (position) => resolve(position),
+          (error) => {
+            console.error("Error obteniendo ubicación web:", error);
+            setGeo({ status: "denied" });
+            resolve(null);
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0,
+          }
+        );
+      });
     } catch (error) {
       console.error("Error obteniendo ubicación:", error);
       setGeo({ status: "denied" });
@@ -343,34 +376,30 @@ export default function MarcajePage() {
 
       setGeo({ status: "loading" });
 
-      let lat: number | undefined;
-      let lng: number | undefined;
-      let accuracy: number | undefined;
+      let lat: number | null = null;
+      let lng: number | null = null;
+      let accuracy: number | null = null;
 
-      if (!("geolocation" in navigator)) {
-        setGeo({ status: "unavailable" });
+      const pos = await getLocation();
+
+      if (pos) {
+        lat = pos.coords.latitude;
+        lng = pos.coords.longitude;
+        accuracy = pos.coords.accuracy ?? null;
+
+        setGeo({
+          status: "success",
+          lat,
+          lng,
+          accuracy: accuracy ?? 0,
+        });
       } else {
-        const pos = await getLocation();
-
-        if (pos) {
-          lat = pos.coords.latitude;
-          lng = pos.coords.longitude;
-          accuracy = pos.coords.accuracy;
-
-          setGeo({
-            status: "success",
-            lat,
-            lng,
-            accuracy,
-          });
-        } else {
-          setGeo({ status: "denied" });
-        }
+        setGeo({ status: "denied" });
       }
 
-      let inside: boolean | undefined = undefined;
+      let inside: boolean | null = null;
 
-      if (lat !== undefined && lng !== undefined) {
+      if (lat !== null && lng !== null) {
         inside = isInsideGeofence(lat, lng, officeGeofence);
       }
 
@@ -381,15 +410,17 @@ export default function MarcajePage() {
         return;
       }
 
-      recordAttendance({
+      await recordAttendance({
         type: nextType,
         latitude: lat,
         longitude: lng,
         accuracy,
-        shiftId: activeShift?._id,
+        shiftId: activeShift?._id ?? null,
         insideGeofence: inside,
         geofenceId: officeGeofence.id,
         geofenceName: officeGeofence.name,
+        faceVerificationStatus: "verified",
+        markStatus: "approved",
       });
 
       toast.success(
@@ -536,6 +567,7 @@ export default function MarcajePage() {
             </motion.div>
           )}
         </AnimatePresence>
+
         <button
           onClick={handleRecord}
           disabled={recording}

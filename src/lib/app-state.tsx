@@ -31,6 +31,8 @@ import {
   cancelAllAlarmNotifications,
   scheduleAlarmNotification,
   syncAlarmNotifications,
+  startWebAlarmScheduler,
+  stopWebAlarmScheduler,
 } from "@/lib/native-notifications";
 
 export type Shift = {
@@ -66,16 +68,16 @@ export type AttendanceRecord = {
   _id: string;
   type: "checkin" | "checkout";
   timestamp: string;
-  shiftId?: string;
-  latitude?: number;
-  longitude?: number;
-  accuracy?: number;
-  note?: string;
-  geofenceId?: string;
-  geofenceName?: string;
-  insideGeofence?: boolean;
+  shiftId?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  accuracy?: number | null;
+  note?: string | null;
+  geofenceId?: string | null;
+  geofenceName?: string | null;
+  insideGeofence?: boolean | null;
   faceVerificationStatus?: "pending" | "verified" | "rejected" | "not_used";
-  faceImageUrl?: string;
+  faceImageUrl?: string | null;
   markStatus?: "approved" | "rejected" | "manual_review";
 };
 
@@ -144,17 +146,17 @@ function mapAttendance(record: any): AttendanceRecord {
     _id: record._id ?? "",
     type: record.type,
     timestamp: record.timestamp,
-    shiftId: record.shiftId,
-    latitude: record.latitude,
-    longitude: record.longitude,
-    accuracy: record.accuracy,
-    note: record.note,
-    geofenceId: record.geofenceId,
-    geofenceName: record.geofenceName,
-    insideGeofence: record.insideGeofence,
-    faceVerificationStatus: record.faceVerificationStatus,
-    faceImageUrl: record.faceImageUrl,
-    markStatus: record.markStatus,
+    shiftId: record.shiftId ?? null,
+    latitude: record.latitude ?? null,
+    longitude: record.longitude ?? null,
+    accuracy: record.accuracy ?? null,
+    note: record.note ?? null,
+    geofenceId: record.geofenceId ?? null,
+    geofenceName: record.geofenceName ?? null,
+    insideGeofence: record.insideGeofence ?? null,
+    faceVerificationStatus: record.faceVerificationStatus ?? "not_used",
+    faceImageUrl: record.faceImageUrl ?? null,
+    markStatus: record.markStatus ?? "approved",
   };
 }
 
@@ -188,6 +190,12 @@ function getDefaultShifts(): Omit<Shift, "_id">[] {
       isActive: false,
     },
   ];
+}
+
+function removeUndefinedValues<T extends Record<string, any>>(input: T) {
+  return Object.fromEntries(
+    Object.entries(input).filter(([, value]) => value !== undefined)
+  ) as T;
 }
 
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
@@ -234,6 +242,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
           loadedShifts.map(mapShift),
           finalRotationConfig
         );
+
         const mappedAlarms = loadedAlarms.map(mapAlarm);
         const mappedAttendance = loadedAttendance.map(mapAttendance);
 
@@ -251,6 +260,20 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     void loadFirestoreData();
   }, [isAuthenticated, isAuthLoading, uidValue]);
 
+  useEffect(() => {
+    if (isAuthLoading) return;
+
+    if (!isAuthenticated || !uidValue) {
+      stopWebAlarmScheduler();
+      return;
+    }
+
+    startWebAlarmScheduler(alarms, shifts);
+
+    return () => {
+      stopWebAlarmScheduler();
+    };
+  }, [isAuthenticated, isAuthLoading, uidValue, alarms, shifts]);
   const value = useMemo<AppStateValue>(
     () => ({
       shifts,
@@ -397,7 +420,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         setShifts(mappedShifts);
 
         await syncAlarmNotifications(alarms, mappedShifts);
-},
+      },
 
       initDefaultShifts: async () => {
         if (!uidValue) return;
@@ -512,12 +535,23 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       recordAttendance: async (input) => {
         if (!uidValue) return;
 
-        await createAttendanceRecord(uidValue, {
+        const cleanInput = removeUndefinedValues({
           ...input,
           timestamp: new Date().toISOString(),
-          faceVerificationStatus: input.faceVerificationStatus ?? "not_used",
+          latitude: input.latitude ?? null,
+          longitude: input.longitude ?? null,
+          accuracy: input.accuracy ?? null,
+          shiftId: input.shiftId ?? null,
+          insideGeofence: input.insideGeofence ?? null,
+          geofenceId: input.geofenceId ?? null,
+          geofenceName: input.geofenceName ?? null,
+          faceVerificationStatus:
+            input.faceVerificationStatus ?? "verified",
+          faceImageUrl: input.faceImageUrl ?? null,
           markStatus: input.markStatus ?? "approved",
         });
+
+        await createAttendanceRecord(uidValue, cleanInput as any);
 
         const updatedAttendance = await getUserAttendance(uidValue);
         setAttendance(updatedAttendance.map(mapAttendance));
