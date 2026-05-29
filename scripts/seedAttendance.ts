@@ -26,7 +26,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-const SOURCE = "seed-demo-abril-mayo-v3";
+const SOURCE = "seed-demo-abril-mayo-v4-rotacion-semanal";
 const DELETE_OLD_SEED_DATA = true;
 
 const workers = [
@@ -70,12 +70,27 @@ function formatDateLocal(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
+function getWeekIndex(date: Date, startDate: Date) {
+  const oneDay = 24 * 60 * 60 * 1000;
+  const diffDays = Math.floor(
+    (date.getTime() - startDate.getTime()) / oneDay
+  );
+
+  return Math.floor(diffDays / 7);
+}
+
+function getWeeklyShift(workerIndex: number, weekIndex: number) {
+  const shiftIndex = (workerIndex + weekIndex) % shifts.length;
+  return shifts[shiftIndex];
+}
+
 async function deleteOldSeedData() {
   const oldSources = [
     "seed-demo",
     "seed-demo-abril-mayo",
     "seed-demo-abril-mayo-v2",
     "seed-demo-abril-mayo-v3",
+    "seed-demo-abril-mayo-v4-rotacion-semanal",
   ];
 
   let deleted = 0;
@@ -117,8 +132,10 @@ async function seedAttendance() {
     // No genera registros los domingos
     if (day === 0) continue;
 
-    for (const worker of workers) {
-      const shift = shifts[randomNumber(0, shifts.length - 1)];
+    const weekIndex = getWeekIndex(currentDate, startDate);
+
+    for (const [workerIndex, worker] of workers.entries()) {
+      const shift = getWeeklyShift(workerIndex, weekIndex);
       const probability = Math.random();
 
       let status = "";
@@ -158,6 +175,8 @@ async function seedAttendance() {
         lateMinutes,
         location: "CD Refrigerados Macul",
         source: SOURCE,
+        rotationType: "weekly",
+        rotationWeek: weekIndex + 1,
         createdAt: Timestamp.now(),
       });
 
