@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState, lazy, Suspense, useRef } from "react";
+import { Capacitor } from "@capacitor/core";
 import { toast } from "sonner";
 import {
   CheckCircle2,
@@ -240,7 +241,7 @@ export default function MarcajePage() {
 
   const getLocation = useCallback(async () => {
     try {
-      if (typeof window !== "undefined" && window.Capacitor?.isNativePlatform?.()) {
+      if (Capacitor.isNativePlatform()) {
         const permission = await Geolocation.requestPermissions();
 
         if (
