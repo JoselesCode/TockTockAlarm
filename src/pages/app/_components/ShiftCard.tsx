@@ -213,7 +213,7 @@ function AlarmRow({
 }
 
 export default function ShiftCard({ shift, onEdit }: Props) {
-  const { setShiftActive, removeShift, getAlarmsByShift } = useAppState();
+  const { setShiftActive, removeShift, getAlarmsByShift, updateAlarm } = useAppState();
   const alarms = getAlarmsByShift(shift._id);
   const [expanded, setExpanded] = useState(shift.isActive);
   const [addAlarmOpen, setAddAlarmOpen] = useState(false);
@@ -225,15 +225,30 @@ export default function ShiftCard({ shift, onEdit }: Props) {
   const isFixedShift = shift.isDefault || shift.canDelete === false;
 
   const handleToggleActive = async () => {
-    await setShiftActive(shift._id, !shift.isActive);
+  const nextActive = !shift.isActive;
 
-    if (!shift.isActive) {
-      toast.success(`${shift.name} activado`);
-      setExpanded(true);
-    } else {
-      toast(`${shift.name} desactivado`);
-    }
-  };
+  await setShiftActive(shift._id, nextActive);
+
+  if (nextActive) {
+    await Promise.all(
+      alarms.map((alarm) =>
+        updateAlarm(alarm._id, { enabled: true })
+      )
+    );
+
+    toast.success(`${shift.name} activado con todas sus alarmas`);
+    setExpanded(true);
+  } else {
+    await Promise.all(
+      alarms.map((alarm) =>
+        updateAlarm(alarm._id, { enabled: false })
+      )
+    );
+
+    toast(`${shift.name} desactivado y alarmas apagadas`);
+  }
+
+};
 
   const handleDeleteClick = () => {
     if (isFixedShift) {
