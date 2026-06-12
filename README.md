@@ -4,12 +4,12 @@ TockTock Alarm es una aplicación móvil orientada a trabajadores con turnos rot
 
 ### Características
 
-✅ Gestión de turnos rotativos  
-✅ Alarmas inteligentes por turno  
-✅ Marcaje de asistencia  
-✅ Reconocimiento facial  
-✅ Sincronización con Firebase  
-✅ Diseño accesible e inclusivo  
+🕒 Gestión de turnos rotativos
+⏰ Alarmas inteligentes por turno
+📍 Marcaje de asistencia
+📷 Reconocimiento facial
+☁️ Sincronización con Firebase
+♿ Accesibilidad e inclusión 
 
 ### Tecnologías
 
