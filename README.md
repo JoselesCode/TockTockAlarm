@@ -1,22 +1,22 @@
-Proyecto de Capstone - Grupo 3
--
-Estructura de la APP
-/
-*Inicio público
+# ⏰ TockTock Alarm
 
-/app
-*Acceso / login
+TockTock Alarm es una aplicación móvil orientada a trabajadores con turnos rotativos, integrando gestión de turnos, alarmas inteligentes, marcaje de asistencia, reconocimiento facial y herramientas de accesibilidad en una única solución.
 
-/app
-*Panel principal del trabajador
-**Turnos
-**Alarmas
-**Marcaje
+### Características
 
-/app/dashboard
-*Panel de RRHH
-**Asistencia general
-**Atrasos
-**Reportes
-**Filtros por trabajador
-**Exportación
+✅ Gestión de turnos rotativos  
+✅ Alarmas inteligentes por turno  
+✅ Marcaje de asistencia  
+✅ Reconocimiento facial  
+✅ Sincronización con Firebase  
+✅ Diseño accesible e inclusivo  
+
+### Tecnologías
+
+React · TypeScript · Firebase · Capacitor · TailwindCSS · Face API
+
+### Desarrollado por
+
+José Díaz · Nicolás Pozo · Martín Lara
+
+**Proyecto de Título – Ingeniería en Informática | Duoc UC**
