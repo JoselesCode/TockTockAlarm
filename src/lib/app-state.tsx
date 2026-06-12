@@ -6,6 +6,12 @@ import {
 } from "@/lib/weekly-rotation";
 import { useAuthContext } from "@/components/providers/auth";
 import {
+  DEFAULT_ACCESSIBILITY_SETTINGS,
+  getUserAccessibilitySettings,
+  saveUserAccessibilitySettings,
+  type AccessibilitySettings,
+} from "@/lib/firebase/users";
+import {
   createUserShift,
   deleteUserShift,
   getUserShifts,
@@ -86,6 +92,8 @@ type AppStateValue = {
   alarms: Alarm[];
   attendance: AttendanceRecord[];
   rotationConfig: RotationConfig;
+  accessibilitySettings: AccessibilitySettings;
+  saveAccessibilitySettings: (settings: AccessibilitySettings) => Promise<void>;
   createShift: (
     input: Omit<Shift, "_id" | "order" | "isActive">
   ) => Promise<void>;
@@ -206,6 +214,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [rotationConfig, setRotationConfig] =
     useState<RotationConfig>(DEFAULT_ROTATION_CONFIG);
+  const [accessibilitySettings, setAccessibilitySettings] =
+    useState<AccessibilitySettings>(DEFAULT_ACCESSIBILITY_SETTINGS);
 
   const uidValue = user?.uid ?? "";
 
@@ -218,6 +228,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         setAlarms([]);
         setAttendance([]);
         setRotationConfig(DEFAULT_ROTATION_CONFIG);
+        setAccessibilitySettings(DEFAULT_ACCESSIBILITY_SETTINGS);
         await cancelAllAlarmNotifications();
         return;
       }
@@ -228,11 +239,13 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
           loadedAlarms,
           loadedAttendance,
           loadedRotationConfig,
+          loadedAccessibilitySettings,
         ] = await Promise.all([
           getUserShifts(uidValue),
           getUserAlarms(uidValue),
           getUserAttendance(uidValue),
           getUserRotationConfig(uidValue),
+          getUserAccessibilitySettings(uidValue),
         ]);
 
         const finalRotationConfig =
@@ -250,6 +263,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         setAlarms(mappedAlarms);
         setAttendance(mappedAttendance);
         setRotationConfig(finalRotationConfig);
+        setAccessibilitySettings(loadedAccessibilitySettings);
 
         await syncAlarmNotifications(mappedAlarms, mappedShifts);
       } catch (error) {
@@ -274,12 +288,21 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       stopWebAlarmScheduler();
     };
   }, [isAuthenticated, isAuthLoading, uidValue, alarms, shifts]);
+
   const value = useMemo<AppStateValue>(
     () => ({
       shifts,
       alarms,
       attendance,
       rotationConfig,
+      accessibilitySettings,
+
+      saveAccessibilitySettings: async (settings) => {
+        if (!uidValue) return;
+
+        await saveUserAccessibilitySettings(uidValue, settings);
+        setAccessibilitySettings(settings);
+      },
 
       createShift: async (input) => {
         if (!uidValue) return;
@@ -545,8 +568,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
           insideGeofence: input.insideGeofence ?? null,
           geofenceId: input.geofenceId ?? null,
           geofenceName: input.geofenceName ?? null,
-          faceVerificationStatus:
-            input.faceVerificationStatus ?? "verified",
+          faceVerificationStatus: input.faceVerificationStatus ?? "verified",
           faceImageUrl: input.faceImageUrl ?? null,
           markStatus: input.markStatus ?? "approved",
         });
@@ -566,7 +588,14 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         setAttendance(updatedAttendance.map(mapAttendance));
       },
     }),
-    [shifts, alarms, attendance, rotationConfig, uidValue]
+    [
+      shifts,
+      alarms,
+      attendance,
+      rotationConfig,
+      accessibilitySettings,
+      uidValue,
+    ]
   );
 
   return (

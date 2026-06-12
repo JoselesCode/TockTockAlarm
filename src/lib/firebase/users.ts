@@ -13,6 +13,26 @@ import { db } from "@/lib/firebase";
 
 export type UserRole = "worker" | "rrhh";
 
+export type AccessibilityFontSize = "normal" | "large" | "extra";
+
+export type AccessibilitySettings = {
+  fontSize: AccessibilityFontSize;
+  lowVision: boolean;
+  colorBlind: boolean;
+  hearing: boolean;
+  reducedMotion: boolean;
+  simpleMode: boolean;
+};
+
+export const DEFAULT_ACCESSIBILITY_SETTINGS: AccessibilitySettings = {
+  fontSize: "normal",
+  lowVision: false,
+  colorBlind: false,
+  hearing: false,
+  reducedMotion: false,
+  simpleMode: false,
+};
+
 export type FirestoreUserProfile = {
   uid: string;
   name: string;
@@ -115,6 +135,48 @@ export async function updateUserStatus(
     });
   } catch (error) {
     console.error("Error actualizando estado:", error);
+    throw error;
+  }
+}
+
+export async function getUserAccessibilitySettings(
+  uid: string
+): Promise<AccessibilitySettings> {
+  try {
+    const ref = doc(db, "users", uid, "settings", "accessibility");
+    const snapshot = await getDoc(ref);
+
+    if (!snapshot.exists()) {
+      return DEFAULT_ACCESSIBILITY_SETTINGS;
+    }
+
+    return {
+      ...DEFAULT_ACCESSIBILITY_SETTINGS,
+      ...(snapshot.data() as Partial<AccessibilitySettings>),
+    };
+  } catch (error) {
+    console.error("Error obteniendo configuración de accesibilidad:", error);
+    return DEFAULT_ACCESSIBILITY_SETTINGS;
+  }
+}
+
+export async function saveUserAccessibilitySettings(
+  uid: string,
+  settings: AccessibilitySettings
+) {
+  try {
+    const ref = doc(db, "users", uid, "settings", "accessibility");
+
+    await setDoc(
+      ref,
+      {
+        ...settings,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  } catch (error) {
+    console.error("Error guardando configuración de accesibilidad:", error);
     throw error;
   }
 }

@@ -1,60 +1,181 @@
-import { Eye, Type, Volume2, Zap } from "lucide-react";
+import {
+  Accessibility as AccessibilityIcon,
+  Bell,
+  Brain,
+  ChevronRight,
+  Eye,
+  Ear,
+  Hand,
+  Info,
+  Palette,
+  SlidersHorizontal,
+  Sparkles,
+  Type,
+  Volume2,
+  Zap,
+} from "lucide-react";
 import { motion } from "motion/react";
+
+const quickModes = [
+  {
+    icon: Eye,
+    title: "Baja visión",
+    desc: "Texto grande y alto contraste",
+    color: "text-purple-600 dark:text-purple-400",
+    bg: "bg-purple-100 dark:bg-purple-900/30",
+  },
+  {
+    icon: Palette,
+    title: "Daltonismo",
+    desc: "Colores seguros",
+    color: "text-orange-600 dark:text-orange-400",
+    bg: "bg-orange-100 dark:bg-orange-900/30",
+  },
+  {
+    icon: Ear,
+    title: "Audición",
+    desc: "Vibración y alerta visual",
+    color: "text-teal-600 dark:text-teal-400",
+    bg: "bg-teal-100 dark:bg-teal-900/30",
+  },
+  {
+    icon: Hand,
+    title: "Motricidad",
+    desc: "Botones grandes",
+    color: "text-rose-600 dark:text-rose-400",
+    bg: "bg-rose-100 dark:bg-rose-900/30",
+  },
+  {
+    icon: Brain,
+    title: "Cognitiva",
+    desc: "Interfaz simple",
+    color: "text-blue-600 dark:text-blue-400",
+    bg: "bg-blue-100 dark:bg-blue-900/30",
+  },
+];
 
 const a11yFeatures = [
   {
     icon: Eye,
+    title: "Baja visión",
+    desc: "Modo pensado para personas con visión reducida. Aumenta el tamaño del texto, mejora el contraste y hace que las alarmas sean más fáciles de leer.",
+    detail: "Texto grande + alto contraste",
+    color: "text-purple-600 dark:text-purple-400",
+    bg: "bg-purple-100 dark:bg-purple-900/30",
+    preview: (
+      <div className="mt-4 rounded-2xl bg-muted p-4">
+        <p className="text-3xl font-black text-foreground">06:00</p>
+        <p className="text-base font-semibold text-muted-foreground">
+          Salir al trabajo
+        </p>
+      </div>
+    ),
+  },
+  {
+    icon: Palette,
     title: "Modo daltonismo",
-    desc: "Los colores de los turnos (Mañana, Tarde, Noche) usan combinaciones seguras para personas con daltonismo rojo-verde, azul-amarillo y total.",
-    detail: "Paleta WCAG AA / AAA",
+    desc: "Los turnos usan colores diferenciados para evitar confusiones entre mañana, tarde y noche. Además, cada turno puede acompañarse con texto o iconos.",
+    detail: "Paleta segura para turnos",
+    color: "text-orange-600 dark:text-orange-400",
+    bg: "bg-orange-100 dark:bg-orange-900/30",
     preview: (
-      <div className="flex gap-2 mt-3">
-        <div className="h-8 flex-1 rounded-lg bg-amber-500 flex items-center justify-center text-white text-xs font-bold">AM</div>
-        <div className="h-8 flex-1 rounded-lg bg-teal-500 flex items-center justify-center text-white text-xs font-bold">PM</div>
-        <div className="h-8 flex-1 rounded-lg bg-indigo-700 flex items-center justify-center text-white text-xs font-bold">NOC</div>
-      </div>
-    ),
-  },
-  {
-    icon: Type,
-    title: "Texto grande",
-    desc: "Tamaño mínimo de fuente 18px para todos los elementos interactivos. Ideal para adultos mayores y personas con visión reducida.",
-    detail: "Mínimo 18px (WCAG 2.1)",
-    preview: (
-      <div className="mt-3 bg-muted rounded-xl p-3">
-        <p className="text-2xl font-black text-foreground">06:00</p>
-        <p className="text-base text-muted-foreground font-medium">Salir al trabajo</p>
-      </div>
-    ),
-  },
-  {
-    icon: Volume2,
-    title: "Alarmas sonoras + vibración",
-    desc: "Alarmas con sonido fuerte y vibración simultánea para personas con discapacidad auditiva parcial o que duermen profundo.",
-    detail: "Sonido + Vibración",
-    preview: (
-      <div className="mt-3 flex gap-3">
-        <div className="flex-1 bg-primary/10 rounded-xl p-3 text-center">
-          <Volume2 className="w-6 h-6 text-primary mx-auto mb-1" />
-          <p className="text-xs font-semibold text-primary">Sonido</p>
+      <div className="mt-4 grid grid-cols-3 gap-2">
+        <div className="rounded-xl bg-amber-500 p-3 text-center text-white">
+          <p className="text-sm font-black">AM</p>
+          <p className="text-[11px] font-semibold">Mañana</p>
         </div>
-        <div className="flex-1 bg-muted rounded-xl p-3 text-center">
-          <Zap className="w-6 h-6 text-muted-foreground mx-auto mb-1" />
-          <p className="text-xs font-semibold text-muted-foreground">Vibración</p>
+        <div className="rounded-xl bg-teal-500 p-3 text-center text-white">
+          <p className="text-sm font-black">PM</p>
+          <p className="text-[11px] font-semibold">Tarde</p>
+        </div>
+        <div className="rounded-xl bg-indigo-700 p-3 text-center text-white">
+          <p className="text-sm font-black">NOC</p>
+          <p className="text-[11px] font-semibold">Noche</p>
         </div>
       </div>
     ),
   },
   {
-    icon: Zap,
-    title: "Interfaz simplificada",
-    desc: "Sin menús complejos. Pantalla principal muestra solo los 3 turnos con íconos grandes. Diseño pensado para el uso rápido antes de dormir.",
-    detail: "Máx. 2 toques para cualquier acción",
+    icon: Ear,
+    title: "Audición reducida",
+    desc: "Permite combinar sonido, vibración y alerta visual para que la alarma no dependa solamente del audio.",
+    detail: "Sonido + vibración + visual",
+    color: "text-teal-600 dark:text-teal-400",
+    bg: "bg-teal-100 dark:bg-teal-900/30",
     preview: (
-      <div className="mt-3 grid grid-cols-3 gap-2">
-        {["Sol", "Atardecer", "Luna"].map((t, i) => (
-          <div key={t} className={`rounded-xl p-2 text-center ${i === 0 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-            <p className="text-xs font-bold">{t}</p>
+      <div className="mt-4 grid grid-cols-3 gap-2">
+        <div className="rounded-xl bg-primary/10 p-3 text-center">
+          <Volume2 className="mx-auto mb-1 h-6 w-6 text-primary" />
+          <p className="text-xs font-bold text-primary">Sonido</p>
+        </div>
+        <div className="rounded-xl bg-muted p-3 text-center">
+          <Zap className="mx-auto mb-1 h-6 w-6 text-muted-foreground" />
+          <p className="text-xs font-bold text-muted-foreground">Vibración</p>
+        </div>
+        <div className="rounded-xl bg-rose-100 p-3 text-center dark:bg-rose-900/30">
+          <Bell className="mx-auto mb-1 h-6 w-6 text-rose-600 dark:text-rose-400" />
+          <p className="text-xs font-bold text-rose-600 dark:text-rose-400">
+            Visual
+          </p>
+        </div>
+      </div>
+    ),
+  },
+  {
+    icon: Hand,
+    title: "Movilidad reducida",
+    desc: "Botones grandes, acciones claras y menos pasos para activar o desactivar turnos. Ideal para usuarios que necesitan una navegación más simple.",
+    detail: "Menos toques, más claridad",
+    color: "text-rose-600 dark:text-rose-400",
+    bg: "bg-rose-100 dark:bg-rose-900/30",
+    preview: (
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="rounded-xl bg-primary p-4 text-center text-primary-foreground">
+          <p className="text-sm font-black">Activar turno</p>
+        </div>
+        <div className="rounded-xl bg-muted p-4 text-center text-muted-foreground">
+          <p className="text-sm font-black">Editar</p>
+        </div>
+      </div>
+    ),
+  },
+  {
+    icon: Brain,
+    title: "Apoyo cognitivo",
+    desc: "La interfaz evita información innecesaria y muestra instrucciones breves para que el usuario entienda qué debe hacer en cada pantalla.",
+    detail: "Pasos simples y guiados",
+    color: "text-blue-600 dark:text-blue-400",
+    bg: "bg-blue-100 dark:bg-blue-900/30",
+    preview: (
+      <div className="mt-4 rounded-2xl bg-muted p-4">
+        <p className="mb-2 text-sm font-black text-foreground">
+          Próxima acción
+        </p>
+        <p className="text-sm font-medium text-muted-foreground">
+          Elige tu turno actual y confirma tus alarmas.
+        </p>
+      </div>
+    ),
+  },
+  {
+    icon: SlidersHorizontal,
+    title: "Alarma personalizada",
+    desc: "Cada trabajador puede adaptar la alarma según su necesidad: solo sonido, solo vibración, ambos o aviso visual.",
+    detail: "Configuración adaptable",
+    color: "text-emerald-600 dark:text-emerald-400",
+    bg: "bg-emerald-100 dark:bg-emerald-900/30",
+    preview: (
+      <div className="mt-4 grid grid-cols-4 gap-2">
+        {["Sonido", "Vibrar", "Ambos", "Visual"].map((item, index) => (
+          <div
+            key={item}
+            className={`rounded-xl p-3 text-center text-xs font-bold ${
+              index === 0
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground"
+            }`}
+          >
+            {item}
           </div>
         ))}
       </div>
@@ -65,51 +186,123 @@ const a11yFeatures = [
 export default function Accessibility() {
   return (
     <section id="accesibilidad" className="py-24">
-      <div className="max-w-6xl mx-auto px-4">
+      <div className="mx-auto max-w-6xl px-4">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
-          className="text-center mb-16"
+          className="mb-12 text-center"
         >
-          <div className="inline-flex items-center gap-2 bg-purple-100 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-700 text-purple-700 dark:text-purple-300 rounded-full px-4 py-2 text-sm font-semibold mb-6">
-            <Eye className="w-4 h-4" />
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-purple-200 bg-purple-100 px-4 py-2 text-sm font-semibold text-purple-700 dark:border-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+            <AccessibilityIcon className="h-4 w-4" />
             Diseño inclusivo
           </div>
-          <h2 className="text-4xl md:text-5xl font-black tracking-tighter text-balance mb-4">
+
+          <h2 className="mb-4 text-balance text-4xl font-black tracking-tighter md:text-5xl">
             Accesible para <span className="text-primary">todos</span>
           </h2>
-          <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-            TockTockAlarm está diseñada para que cualquier trabajador pueda usarla, sin importar
-            su edad o condición visual.
+
+          <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
+            TockTockAlarm incorpora opciones para personas con baja visión,
+            daltonismo, audición reducida, movilidad reducida y usuarios que
+            necesitan una experiencia más simple.
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.4 }}
+          className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-5"
+        >
+          {quickModes.map((mode) => (
+            <div
+              key={mode.title}
+              className="rounded-2xl border border-border bg-card p-4 text-center shadow-sm transition-all hover:-translate-y-1 hover:shadow-md"
+            >
+              <div
+                className={`mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl ${mode.bg}`}
+              >
+                <mode.icon className={`h-6 w-6 ${mode.color}`} />
+              </div>
+              <h3 className="text-sm font-black text-foreground">
+                {mode.title}
+              </h3>
+              <p className="mt-1 text-xs font-medium text-muted-foreground">
+                {mode.desc}
+              </p>
+            </div>
+          ))}
+        </motion.div>
+
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           {a11yFeatures.map((f, i) => (
             <motion.div
               key={f.title}
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: i * 0.1 }}
-              className="bg-card border border-border rounded-2xl p-6 shadow-sm"
+              transition={{ duration: 0.4, delay: i * 0.08 }}
+              className="rounded-2xl border border-border bg-card p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md"
             >
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-                  <f.icon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+              <div className="mb-4 flex items-start justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`flex h-12 w-12 items-center justify-center rounded-2xl ${f.bg}`}
+                  >
+                    <f.icon className={`h-6 w-6 ${f.color}`} />
+                  </div>
+
+                  <div>
+                    <h3 className="text-lg font-black text-foreground">
+                      {f.title}
+                    </h3>
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      {f.detail}
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-bold text-base">{f.title}</h3>
-                  <span className="text-[11px] text-muted-foreground font-mono">{f.detail}</span>
-                </div>
+
+                <ChevronRight className="mt-2 h-5 w-5 text-muted-foreground" />
               </div>
-              <p className="text-muted-foreground text-sm leading-relaxed">{f.desc}</p>
+
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                {f.desc}
+              </p>
+
               {f.preview}
             </motion.div>
           ))}
         </div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.4 }}
+          className="mt-8 rounded-2xl border border-purple-200 bg-purple-50 p-5 dark:border-purple-700 dark:bg-purple-900/20"
+        >
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-100 dark:bg-purple-900/40">
+              <Info className="h-5 w-5 text-purple-700 dark:text-purple-300" />
+            </div>
+
+            <div>
+              <h3 className="font-black text-purple-800 dark:text-purple-200">
+                TockTockAlarm se adapta al trabajador
+              </h3>
+              <p className="mt-1 text-sm font-medium leading-relaxed text-purple-700 dark:text-purple-300">
+                La accesibilidad no es solo visual: también considera sonido,
+                vibración, navegación simple, botones grandes y alertas claras
+                para distintos contextos laborales.
+              </p>
+            </div>
+
+            <Sparkles className="ml-auto hidden h-5 w-5 text-purple-700 dark:text-purple-300 md:block" />
+          </div>
+        </motion.div>
       </div>
     </section>
   );

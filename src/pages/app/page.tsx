@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
-import { AlarmClock, ClipboardCheck, Plus, Camera } from "lucide-react";
+import {
+  Accessibility,
+  AlarmClock,
+  Camera,
+  ClipboardCheck,
+  Plus,
+} from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 import { motion, AnimatePresence } from "motion/react";
@@ -16,7 +22,12 @@ import WebAlarmBanner from "@/components/app/WebAlarmBanner";
 type Tab = "turnos" | "marcaje" | "reconocimiento";
 
 export default function AppPage() {
-  const { shifts, alarms, initDefaultShifts } = useAppState();
+  const {
+    shifts,
+    alarms,
+    initDefaultShifts,
+    accessibilitySettings,
+  } = useAppState();
 
   const [tab, setTab] = useState<Tab>("turnos");
   const [createOpen, setCreateOpen] = useState(false);
@@ -42,25 +53,50 @@ export default function AppPage() {
     { id: "reconocimiento", label: "Reconocimiento", Icon: Camera },
   ] as const;
 
-  return (
-    <div className="min-h-screen bg-background">
-      <AppHeader activeShift={activeShift} />
+  const activeAccessibilityCount = [
+    accessibilitySettings.lowVision,
+    accessibilitySettings.colorBlind,
+    accessibilitySettings.hearing,
+    accessibilitySettings.reducedMotion,
+    accessibilitySettings.simpleMode,
+    accessibilitySettings.fontSize !== "normal",
+  ].filter(Boolean).length;
 
-      <nav className="sticky top-[73px] z-20 bg-background/95 backdrop-blur border-b border-border">
-        <div className="max-w-2xl mx-auto px-4">
+  return (
+    <div
+      className={cn(
+        "min-h-screen bg-background",
+        accessibilitySettings.fontSize === "large" &&
+          "text-lg [&_button]:text-base",
+        accessibilitySettings.fontSize === "extra" &&
+          "text-xl [&_button]:text-lg",
+        accessibilitySettings.lowVision && "contrast-125 brightness-105",
+        accessibilitySettings.simpleMode &&
+          "[&_p]:leading-relaxed [&_button]:min-h-11",
+        accessibilitySettings.reducedMotion && "[&_*]:transition-none"
+      )}
+    >
+      <AppHeader
+        activeShift={activeShift}
+        activeAccessibilityCount={activeAccessibilityCount}
+      />
+
+      <nav className="sticky top-[73px] z-20 border-b border-border bg-background/95 backdrop-blur">
+        <div className="mx-auto max-w-2xl px-4">
           <div className="flex gap-1 py-2">
             {tabs.map(({ id, label, Icon }) => (
               <button
                 key={id}
                 onClick={() => setTab(id)}
                 className={cn(
-                  "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all",
+                  "flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold transition-all",
                   tab === id
                     ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  accessibilitySettings.simpleMode && "py-4"
                 )}
               >
-                <Icon className="w-4 h-4" />
+                <Icon className="h-4 w-4" />
                 {label}
               </button>
             ))}
@@ -68,7 +104,18 @@ export default function AppPage() {
         </div>
       </nav>
 
-      <main className="max-w-2xl mx-auto px-4 py-6 pb-24">
+      {activeAccessibilityCount > 0 && (
+        <div className="mx-auto max-w-2xl px-4 pt-4">
+          <div className="flex items-center gap-2 rounded-2xl border border-primary/20 bg-primary/10 px-4 py-3 text-sm font-bold text-primary">
+            <Accessibility className="h-4 w-4" />
+            Accesibilidad activa: {activeAccessibilityCount} ajuste
+            {activeAccessibilityCount === 1 ? "" : "s"} aplicado
+            {activeAccessibilityCount === 1 ? "" : "s"}.
+          </div>
+        </div>
+      )}
+
+      <main className="mx-auto max-w-2xl px-4 py-6 pb-24">
         <AnimatePresence mode="wait">
           {tab === "turnos" && (
             <motion.div
@@ -93,9 +140,9 @@ export default function AppPage() {
               )}
 
               <div className="flex items-center justify-between">
-                <h2 className="font-black text-xl">Mis Turnos</h2>
+                <h2 className="text-xl font-black">Mis Turnos</h2>
                 <Button onClick={() => setCreateOpen(true)}>
-                  <Plus className="w-4 h-4" />
+                  <Plus className="h-4 w-4" />
                 </Button>
               </div>
 
@@ -144,6 +191,7 @@ export default function AppPage() {
           editShift={editShift}
         />
       )}
+
       <WebAlarmBanner />
     </div>
   );
