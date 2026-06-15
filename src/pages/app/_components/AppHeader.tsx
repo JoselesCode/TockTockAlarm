@@ -29,9 +29,9 @@ export default function AppHeader({
   });
 
   const dateStr = now.toLocaleDateString("es-CL", {
-    weekday: "long",
+    weekday: "short",
     day: "numeric",
-    month: "long",
+    month: "short",
   });
 
   const ActiveIcon = activeShift
@@ -44,135 +44,95 @@ export default function AppHeader({
 
   return (
     <>
-      <header className="sticky top-0 z-30 border-b border-border bg-card">
-        <div className="mx-auto max-w-2xl px-4 py-3">
+      <header className="border-b border-border bg-card/95 backdrop-blur">
+        <div className="tt-page py-2 space-y-2">
           <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-sm">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary shadow-sm">
                 <AlarmClock
-                  className="h-5 w-5 text-primary-foreground"
+                  className="h-6 w-6 text-primary-foreground"
                   strokeWidth={2.5}
                 />
               </div>
 
               <div className="min-w-0">
-                <p className="text-base font-black leading-tight">
+                <p className="text-lg font-black leading-tight whitespace-nowrap">
                   TockTock<span className="text-primary">Alarm</span>
                 </p>
 
                 {user && (
-                  <p className="max-w-[150px] truncate text-xs text-muted-foreground">
+                  <p className="max-w-[230px] truncate text-xs text-muted-foreground sm:max-w-[320px]">
                     {user.profile.name ?? user.profile.email ?? "Trabajador/a"}
                   </p>
                 )}
               </div>
             </div>
 
-            {activeShift && ActiveIcon && activeColors && (
-              <div
-                className={cn(
-                  "hidden items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold sm:flex",
-                  activeColors.badge
-                )}
-              >
-                <ActiveIcon className="h-3.5 w-3.5" />
-                Turno {activeShift.name}
-              </div>
-            )}
-
-            <div className="flex items-center gap-2">
-              <div className="hidden text-right sm:block">
-                <p className="tabular-nums text-lg font-black leading-tight">
-                  {timeStr}
-                </p>
-                <p className="text-xs capitalize text-muted-foreground">
-                  {dateStr}
-                </p>
-              </div>
-
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2 font-bold shadow-sm"
-                onClick={() => setAccessibilityOpen(true)}
-              >
-                <Accessibility className="h-4 w-4 text-primary" />
-                <span className="hidden sm:inline">
-                  Accesibilidad
-                  {activeAccessibilityCount > 0 &&
-                    ` (${activeAccessibilityCount})`}
-                </span>
-              </Button>
-
-              <Link to="/">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2 font-bold shadow-sm"
-                >
-                  <Home className="h-4 w-4" />
-                  <span className="hidden sm:inline">Inicio</span>
-                </Button>
-              </Link>
-
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2 border-red-200 font-bold shadow-sm hover:border-red-300"
-                onClick={() => removeUser()}
-              >
-                <LogOut className="h-4 w-4 text-red-500" />
-                <span className="hidden text-red-500 sm:inline">Salir</span>
-              </Button>
+            <div className="shrink-0 text-right">
+              <p className="tabular-nums text-lg font-black leading-tight">
+                {timeStr}
+              </p>
+              <p className="text-xs capitalize text-muted-foreground">
+                {dateStr}
+              </p>
             </div>
           </div>
 
-          <div className="mt-3 grid grid-cols-3 gap-2 sm:hidden">
+          <div className="grid w-full grid-cols-3 gap-1.5">
             <Button
               variant="outline"
               size="sm"
-              className="gap-2 font-bold"
+              className={cn(
+                "w-full min-w-0 gap-2 border-primary/20 font-bold shadow-sm hover:border-primary/40 hover:bg-primary/10",
+                activeAccessibilityCount > 0 &&
+                  "border-primary/30 bg-primary/10 text-primary"
+              )}
               onClick={() => setAccessibilityOpen(true)}
+              aria-label="Abrir ajustes de accesibilidad"
             >
-              <Accessibility className="h-4 w-4 text-primary" />
+              <Accessibility className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Accesibilidad</span>
+
               {activeAccessibilityCount > 0 && (
-                <span className="text-xs font-black text-primary">
+                <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-black text-primary-foreground">
                   {activeAccessibilityCount}
                 </span>
               )}
             </Button>
 
-            <Link to="/">
+            <Link to="/" className="w-full">
               <Button
                 variant="outline"
                 size="sm"
-                className="w-full gap-2 font-bold"
+                className="w-full min-w-0 gap-2 border-primary/20 font-bold shadow-sm hover:border-primary/40 hover:bg-primary/10"
+                aria-label="Ir al inicio"
               >
-                <Home className="h-4 w-4" />
+                <Home className="h-4 w-4 shrink-0" />
+                <span className="hidden sm:inline">Inicio</span>
               </Button>
             </Link>
 
             <Button
               variant="outline"
               size="sm"
-              className="gap-2 border-red-200 font-bold"
+              className="w-full min-w-0 gap-2 border-red-200 font-bold text-red-500 shadow-sm hover:border-red-300 hover:bg-red-50 dark:hover:bg-red-950/30"
               onClick={() => removeUser()}
+              aria-label="Cerrar sesión"
             >
-              <LogOut className="h-4 w-4 text-red-500" />
+              <LogOut className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Salir</span>
             </Button>
           </div>
 
           {activeShift && ActiveIcon && activeColors && (
-            <div className="mt-3 flex justify-center sm:hidden">
-              <div
-                className={cn(
-                  "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold",
-                  activeColors.badge
-                )}
-              >
-                <ActiveIcon className="h-3.5 w-3.5" />
-                {activeShift.name} — ACTIVO
-              </div>
+            <div
+              className={cn(
+                "flex items-center justify-center gap-2 rounded-xl px-3 py-1.5 text-xs font-bold",
+                activeColors.badge
+              )}
+            >
+              <ActiveIcon className="h-4 w-4 shrink-0" />
+              <span className="truncate">{activeShift.name} — ACTIVO</span>
             </div>
           )}
         </div>
