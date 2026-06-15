@@ -45,7 +45,7 @@ function AlarmPowerSwitch({
       type="button"
       onClick={onClick}
       className={cn(
-        "relative flex h-12 w-28 items-center rounded-full border-2 px-1 transition-all duration-300",
+        "relative flex h-12 w-24 sm:w-28 items-center rounded-full border-2 px-1 transition-all duration-300",
         checked
           ? "justify-end border-orange-500 bg-orange-500 shadow-[0_0_18px_rgba(249,115,22,0.55)]"
           : "justify-start border-white/20 bg-slate-700"
@@ -114,7 +114,7 @@ function AlarmRow({
     <>
       <div
         className={cn(
-          "flex items-center gap-4 rounded-2xl p-4 border transition-all",
+          "flex flex-wrap items-center gap-4 rounded-2xl p-4 border transition-all",
           isAlarmActive
             ? `${colors.bg} ${colors.border} border shadow-sm`
             : "bg-muted/40 border-border opacity-75"
@@ -159,7 +159,7 @@ function AlarmRow({
           </p>
         </div>
 
-        <div className="flex items-center gap-4 flex-shrink-0">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           <AlarmPowerSwitch checked={alarm.enabled} onClick={toggleEnabled} />
 
           <button
@@ -284,7 +284,7 @@ export default function ShiftCard({ shift, onEdit }: Props) {
         )}
       >
         <div className={cn("p-5", shift.isActive ? colors.bg : "bg-card")}>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
             <div
               className={cn(
                 "w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm",
@@ -355,7 +355,7 @@ export default function ShiftCard({ shift, onEdit }: Props) {
             </button>
           </div>
 
-          <div className="flex items-center justify-between mt-4 pt-3 border-t border-border/50">
+          <div className="flex flex-wrap items-center justify-between gap-2 mt-4 pt-3 border-t border-border/50">
             <div className="flex items-center gap-1">
               <button
                 onClick={() => onEdit(shift)}

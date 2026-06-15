@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   Accessibility,
   AlarmClock,
@@ -22,17 +22,16 @@ import WebAlarmBanner from "@/components/app/WebAlarmBanner";
 type Tab = "turnos" | "marcaje" | "reconocimiento";
 
 export default function AppPage() {
-  const {
-    shifts,
-    alarms,
-    initDefaultShifts,
-    accessibilitySettings,
-  } = useAppState();
+  const { shifts, alarms, initDefaultShifts, accessibilitySettings } =
+    useAppState();
 
   const [tab, setTab] = useState<Tab>("turnos");
   const [createOpen, setCreateOpen] = useState(false);
   const [editShift, setEditShift] = useState<Shift | null>(null);
   const [initialized, setInitialized] = useState(false);
+
+  const headerRef = useRef<HTMLDivElement | null>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
 
   useEffect(() => {
     if (shifts !== undefined && !initialized) {
@@ -62,10 +61,25 @@ export default function AppPage() {
     accessibilitySettings.fontSize !== "normal",
   ].filter(Boolean).length;
 
+  useLayoutEffect(() => {
+    const updateHeaderHeight = () => {
+      if (headerRef.current) {
+        setHeaderHeight(headerRef.current.offsetHeight);
+      }
+    };
+
+    updateHeaderHeight();
+    window.addEventListener("resize", updateHeaderHeight);
+
+    return () => {
+      window.removeEventListener("resize", updateHeaderHeight);
+    };
+  }, [activeShift, activeAccessibilityCount, tab, accessibilitySettings.fontSize]);
+
   return (
     <div
       className={cn(
-        "min-h-screen bg-background",
+        "min-h-screen bg-background overflow-x-hidden",
         accessibilitySettings.fontSize === "large" &&
           "text-lg [&_button]:text-base",
         accessibilitySettings.fontSize === "extra" &&
@@ -76,46 +90,55 @@ export default function AppPage() {
         accessibilitySettings.reducedMotion && "[&_*]:transition-none"
       )}
     >
-      <AppHeader
-        activeShift={activeShift}
-        activeAccessibilityCount={activeAccessibilityCount}
-      />
+      <div
+        ref={headerRef}
+        className="fixed left-0 right-0 top-0 z-[999] bg-background shadow-sm"
+      >
+        <AppHeader
+          activeShift={activeShift}
+          activeAccessibilityCount={activeAccessibilityCount}
+        />
 
-      <nav className="sticky top-[73px] z-20 border-b border-border bg-background/95 backdrop-blur">
-        <div className="mx-auto max-w-2xl px-4">
-          <div className="flex gap-1 py-2">
-            {tabs.map(({ id, label, Icon }) => (
-              <button
-                key={id}
-                onClick={() => setTab(id)}
-                className={cn(
-                  "flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold transition-all",
-                  tab === id
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                  accessibilitySettings.simpleMode && "py-4"
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                {label}
-              </button>
-            ))}
+        <nav className="border-b border-border bg-background/95 backdrop-blur">
+          <div className="tt-page">
+            <div className="flex gap-1 py-2 overflow-x-auto">
+              {tabs.map(({ id, label, Icon }) => (
+                <button
+                  key={id}
+                  onClick={() => setTab(id)}
+                  className={cn(
+                    "min-w-fit flex-1 flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all whitespace-nowrap",
+                    tab === id
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    accessibilitySettings.simpleMode && "py-4"
+                  )}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span>{label}</span>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-      </nav>
+        </nav>
+      </div>
+
+      <div style={{ height: headerHeight }} />
 
       {activeAccessibilityCount > 0 && (
-        <div className="mx-auto max-w-2xl px-4 pt-4">
-          <div className="flex items-center gap-2 rounded-2xl border border-primary/20 bg-primary/10 px-4 py-3 text-sm font-bold text-primary">
-            <Accessibility className="h-4 w-4" />
-            Accesibilidad activa: {activeAccessibilityCount} ajuste
-            {activeAccessibilityCount === 1 ? "" : "s"} aplicado
-            {activeAccessibilityCount === 1 ? "" : "s"}.
+        <div className="tt-page pt-4">
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-primary/20 bg-primary/10 px-4 py-3 text-sm font-bold text-primary">
+            <Accessibility className="h-4 w-4 shrink-0" />
+            <span>
+              Accesibilidad activa: {activeAccessibilityCount} ajuste
+              {activeAccessibilityCount === 1 ? "" : "s"} aplicado
+              {activeAccessibilityCount === 1 ? "" : "s"}.
+            </span>
           </div>
         </div>
       )}
 
-      <main className="mx-auto max-w-2xl px-4 py-6 pb-24">
+      <main className="tt-page py-6 pb-24">
         <AnimatePresence mode="wait">
           {tab === "turnos" && (
             <motion.div
@@ -123,7 +146,7 @@ export default function AppPage() {
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -10 }}
-              className="space-y-6"
+              className="w-full space-y-6"
             >
               {shifts === undefined ? (
                 <Skeleton className="h-28 w-full rounded-2xl" />
@@ -139,7 +162,7 @@ export default function AppPage() {
                 />
               )}
 
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-xl font-black">Mis Turnos</h2>
                 <Button onClick={() => setCreateOpen(true)}>
                   <Plus className="h-4 w-4" />
@@ -149,7 +172,7 @@ export default function AppPage() {
               <div className="space-y-4">
                 {sortedShifts.map((shift) => (
                   <ShiftCard
-                    key={shift._id}
+                    key={`${shift._id}-${shift.name}`}
                     shift={shift}
                     onEdit={(s) => setEditShift(s)}
                   />
@@ -164,6 +187,7 @@ export default function AppPage() {
               initial={{ opacity: 0, x: 10 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 10 }}
+              className="w-full"
             >
               <MarcajePage />
             </motion.div>
@@ -175,6 +199,7 @@ export default function AppPage() {
               initial={{ opacity: 0, x: 10 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 10 }}
+              className="w-full"
             >
               <FaceScanner />
             </motion.div>

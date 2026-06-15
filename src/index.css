@@ -219,3 +219,89 @@
     -webkit-text-size-adjust: 100%;
   }
 }
+/* 
+TOCKTOCK AJUSTES DE ESTILO GLOBALES
+ */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  overflow-wrap: anywhere;
+}
+
+img,
+svg,
+canvas {
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  max-width: 100%;
+}
+
+.tt-page {
+  width: min(100%, 1100px);
+  margin-inline: auto;
+  padding-inline: clamp(12px, 3vw, 24px);
+}
+
+.tt-card {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.tt-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tt-table-scroll table {
+  min-width: 760px;
+}
+
+.tt-chart {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.tt-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.tt-text-safe {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+@media (max-width: 640px) {
+  .tt-mobile-stack {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tt-mobile-full {
+    width: 100%;
+  }
+
+  .tt-hide-mobile {
+    display: none;
+  }
+}

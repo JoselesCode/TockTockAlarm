@@ -517,8 +517,8 @@ export default function DashboardPage() {
       "py-3 text-left font-bold cursor-pointer select-none hover:text-primary transition";
 
     return (
-      <div className="overflow-x-auto mt-6">
-        <table className="w-full text-left">
+  <div className="tt-table-scroll mt-6">
+    <table className="w-full min-w-[760px] text-left text-sm">
           <thead className="border-b">
             <tr className="text-muted-foreground text-sm">
               <th
@@ -611,7 +611,7 @@ export default function DashboardPage() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-black">
               Panel <span className="text-primary">RRHH</span>
@@ -621,7 +621,7 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Link to="/">
               <Button variant="outline" size="sm" className="gap-2">
                 <ArrowLeft className="w-4 h-4" />
@@ -642,7 +642,7 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <section className="max-w-7xl mx-auto p-6 space-y-6">
+      <section className="max-w-7xl mx-auto p-4 sm:p-6 space-y-6 overflow-hidden">
         <section className="rounded-2xl border bg-card p-6">
           <div className="flex items-center gap-2 mb-5">
             <BarChart3 className="w-5 h-5 text-primary" />
@@ -713,7 +713,7 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            <div className="h-72">
+            <div className="tt-chart h-72 sm:h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={asistenciaPorDiaSemana}>
                   <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
@@ -741,7 +741,7 @@ export default function DashboardPage() {
 
           <div className="rounded-2xl border bg-card p-6">
             <h3 className="font-bold mb-4">Top 5 atrasos por trabajador</h3>
-            <div className="h-72">
+            <div className="tt-chart h-72 sm:h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={topAtrasos}
@@ -770,7 +770,7 @@ export default function DashboardPage() {
 
           <div className="rounded-2xl border bg-card p-6">
             <h3 className="font-bold mb-4">Distribución de estados</h3>
-            <div className="h-72">
+            <div className="tt-chart h-72 sm:h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -803,17 +803,17 @@ export default function DashboardPage() {
 
           <div className="rounded-2xl border bg-card p-6">
             <h3 className="font-bold mb-4">Atrasos por turno</h3>
-            <div className="h-72">
+            <div className="tt-chart h-72 sm:h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={atrasosPorTurno}>
                   <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                  <XAxis dataKey="turno" />
+                  <XAxis dataKey="turno" interval={0} tick={{ fontSize: 11 }} />
                   <YAxis allowDecimals={false} />
                   <Tooltip />
                   <Bar
                     dataKey="atrasos"
                     fill="#ff5a00"
-                    barSize={80}
+                    barSize={45}
                     radius={[8, 8, 0, 0]}
                   />
                 </BarChart>
@@ -823,10 +823,10 @@ export default function DashboardPage() {
         </section>
 
         <section className="rounded-2xl border bg-card p-2">
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <button
               onClick={() => setTab("resumen")}
-              className={`flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition ${
+              className={`flex flex-wrap items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition text-center ${
                 tab === "resumen"
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:bg-muted"
@@ -838,7 +838,7 @@ export default function DashboardPage() {
 
             <button
               onClick={() => setTab("historial")}
-              className={`flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition ${
+              className={`flex flex-wrap items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition text-center ${
                 tab === "historial"
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:bg-muted"
@@ -854,7 +854,7 @@ export default function DashboardPage() {
           <section className="rounded-2xl border bg-card p-6">
             <h2 className="text-xl font-bold">Resumen de la semana actual</h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Registros obtenidos desde la colección attendanceRecords.
+              Análisis de asistencia, atrasos y ausencias para la semana actual.
             </p>
 
             {loading ? (

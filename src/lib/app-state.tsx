@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import {
-  applyWeeklyRotation,
   DEFAULT_ROTATION_CONFIG,
   type RotationConfig,
 } from "@/lib/weekly-rotation";
@@ -122,14 +121,14 @@ const AppStateContext = createContext<AppStateValue | null>(null);
 
 function mapShift(shift: any): Shift {
   return {
-    _id: shift._id ?? "",
+    _id: shift._id ?? shift.id ?? "",
     name: shift.name,
     icon: shift.icon,
     color: shift.color,
     startTime: shift.startTime,
     endTime: shift.endTime,
     order: shift.order,
-    isActive: shift.isActive,
+    isActive: Boolean(shift.isActive),
     isDefault: shift.isDefault ?? false,
     canDelete: shift.canDelete ?? true,
   };
@@ -137,12 +136,12 @@ function mapShift(shift: any): Shift {
 
 function mapAlarm(alarm: any): Alarm {
   return {
-    _id: alarm._id ?? "",
+    _id: alarm._id ?? alarm.id ?? "",
     shiftId: alarm.shiftId,
     label: alarm.label,
     time: alarm.time,
     days: alarm.days ?? [],
-    enabled: alarm.enabled,
+    enabled: Boolean(alarm.enabled),
     soundMode: alarm.soundMode ?? "normal",
     vibrationMode: alarm.vibrationMode ?? "normal",
     toneMode: alarm.toneMode ?? "alarma01",
@@ -151,7 +150,7 @@ function mapAlarm(alarm: any): Alarm {
 
 function mapAttendance(record: any): AttendanceRecord {
   return {
-    _id: record._id ?? "",
+    _id: record._id ?? record.id ?? "",
     type: record.type,
     timestamp: record.timestamp,
     shiftId: record.shiftId ?? null,
@@ -206,6 +205,10 @@ function removeUndefinedValues<T extends Record<string, any>>(input: T) {
   ) as T;
 }
 
+function sortShifts(shifts: Shift[]) {
+  return [...shifts].sort((a, b) => a.order - b.order);
+}
+
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated, isLoading: isAuthLoading } = useAuthContext();
 
@@ -251,11 +254,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         const finalRotationConfig =
           loadedRotationConfig ?? DEFAULT_ROTATION_CONFIG;
 
-        const mappedShifts = applyWeeklyRotation(
-          loadedShifts.map(mapShift),
-          finalRotationConfig
-        );
-
+        const mappedShifts = sortShifts(loadedShifts.map(mapShift));
         const mappedAlarms = loadedAlarms.map(mapAlarm);
         const mappedAttendance = loadedAttendance.map(mapAttendance);
 
@@ -263,7 +262,9 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         setAlarms(mappedAlarms);
         setAttendance(mappedAttendance);
         setRotationConfig(finalRotationConfig);
-        setAccessibilitySettings(loadedAccessibilitySettings);
+        setAccessibilitySettings(
+          loadedAccessibilitySettings ?? DEFAULT_ACCESSIBILITY_SETTINGS
+        );
 
         await syncAlarmNotifications(mappedAlarms, mappedShifts);
       } catch (error) {
@@ -311,17 +312,14 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
         const newShift = {
           ...input,
-          order: currentShifts.length,
+          order: currentShifts.length + 1,
           isActive: false,
         };
 
         await createUserShift(uidValue, newShift);
 
         const updatedShifts = await getUserShifts(uidValue);
-        const mappedShifts = applyWeeklyRotation(
-          updatedShifts.map(mapShift),
-          rotationConfig
-        );
+        const mappedShifts = sortShifts(updatedShifts.map(mapShift));
 
         setShifts(mappedShifts);
         await syncAlarmNotifications(alarms, mappedShifts);
@@ -333,10 +331,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         await updateUserShift(uidValue, id, input);
 
         const updatedShifts = await getUserShifts(uidValue);
-        const mappedShifts = applyWeeklyRotation(
-          updatedShifts.map(mapShift),
-          rotationConfig
-        );
+        const mappedShifts = sortShifts(updatedShifts.map(mapShift));
 
         setShifts(mappedShifts);
         await syncAlarmNotifications(alarms, mappedShifts);
@@ -363,7 +358,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         const updatedShifts = await getUserShifts(uidValue);
         const reorderedShifts = updatedShifts.map((shift, index) => ({
           ...shift,
-          order: index,
+          order: index + 1,
         }));
 
         for (const shift of reorderedShifts) {
@@ -379,10 +374,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
           getUserAlarms(uidValue),
         ]);
 
-        const mappedShifts = applyWeeklyRotation(
-          finalShifts.map(mapShift),
-          rotationConfig
-        );
+        const mappedShifts = sortShifts(finalShifts.map(mapShift));
         const mappedAlarms = finalAlarms.map(mapAlarm);
 
         setShifts(mappedShifts);
@@ -392,58 +384,52 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       },
 
       setShiftActive: async (id, isActive) => {
-        if (!uidValue) return;
+  if (!uidValue) return;
 
-        const currentShifts = await getUserShifts(uidValue);
-        const mappedCurrentShifts = currentShifts.map(mapShift);
+  const currentShifts = await getUserShifts(uidValue);
+  const currentAlarms = await getUserAlarms(uidValue);
 
-        if (!isActive) {
-          const updatedShifts = mappedCurrentShifts.map((shift) => ({
-            ...shift,
-            isActive: false,
-          }));
+  const mappedCurrentShifts = currentShifts.map(mapShift);
+  const mappedCurrentAlarms = currentAlarms.map(mapAlarm);
 
-          for (const shift of currentShifts) {
-            if (shift._id) {
-              await updateUserShift(uidValue, shift._id, {
-                isActive: false,
-              });
-            }
-          }
+  const updatedShifts = sortShifts(
+    mappedCurrentShifts.map((shift) => ({
+      ...shift,
+      isActive: isActive ? shift._id === id : false,
+    }))
+  );
 
-          setShifts(updatedShifts);
-          await cancelAllAlarmNotifications();
+  const updatedAlarms = mappedCurrentAlarms.map((alarm) => ({
+    ...alarm,
+    enabled: isActive ? alarm.shiftId === id : false,
+  }));
 
-          return;
-        }
+  for (const shift of updatedShifts) {
+    if (shift._id) {
+      await updateUserShift(uidValue, shift._id, {
+        isActive: shift.isActive,
+      });
+    }
+  }
 
-        const currentOrder =
-          rotationConfig.rotationOrder.length > 0
-            ? rotationConfig.rotationOrder
-            : ["turno-a", "turno-b", "turno-c"];
+  for (const alarm of updatedAlarms) {
+    if (alarm._id) {
+      await updateUserAlarm(uidValue, alarm._id, {
+        enabled: alarm.enabled,
+      });
+    }
+  }
 
-        const newRotationOrder = [
-          id,
-          ...currentOrder.filter((shiftId) => shiftId !== id),
-        ];
+  setShifts(updatedShifts);
+  setAlarms(updatedAlarms);
 
-        const newConfig = {
-          ...rotationConfig,
-          configured: true,
-          rotationOrder: newRotationOrder,
-          startDate: new Date().toISOString().slice(0, 10),
-        };
+  if (!isActive) {
+    await cancelAllAlarmNotifications();
+    return;
+  }
 
-        await saveUserRotationConfig(uidValue, newConfig);
-
-        setRotationConfig(newConfig);
-
-        const mappedShifts = applyWeeklyRotation(mappedCurrentShifts, newConfig);
-
-        setShifts(mappedShifts);
-
-        await syncAlarmNotifications(alarms, mappedShifts);
-      },
+  await syncAlarmNotifications(updatedAlarms, updatedShifts);
+},
 
       initDefaultShifts: async () => {
         if (!uidValue) return;
@@ -451,10 +437,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         const existingShifts = await getUserShifts(uidValue);
 
         if (existingShifts.length > 0) {
-          const mappedShifts = applyWeeklyRotation(
-            existingShifts.map(mapShift),
-            rotationConfig
-          );
+          const mappedShifts = sortShifts(existingShifts.map(mapShift));
 
           setShifts(mappedShifts);
           await syncAlarmNotifications(alarms, mappedShifts);
@@ -468,10 +451,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         }
 
         const loadedShifts = await getUserShifts(uidValue);
-        const mappedShifts = applyWeeklyRotation(
-          loadedShifts.map(mapShift),
-          rotationConfig
-        );
+        const mappedShifts = sortShifts(loadedShifts.map(mapShift));
 
         setShifts(mappedShifts);
         await syncAlarmNotifications(alarms, mappedShifts);
@@ -481,14 +461,9 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         if (!uidValue) return;
 
         await saveUserRotationConfig(uidValue, config);
-
         setRotationConfig(config);
 
-        const updatedShifts = applyWeeklyRotation(shifts, config);
-
-        setShifts(updatedShifts);
-
-        await syncAlarmNotifications(alarms, updatedShifts);
+        await syncAlarmNotifications(alarms, shifts);
       },
 
       createAlarm: async (input) => {
