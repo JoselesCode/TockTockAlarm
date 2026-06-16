@@ -44,7 +44,7 @@ export default function AppHeader({
 
   return (
     <>
-      <header className="border-b border-border bg-card/95 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-border bg-card/95 pt-[env(safe-area-inset-top)] shadow-sm backdrop-blur supports-[backdrop-filter]:bg-card/80">
         <div className="tt-page py-2 space-y-2">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">

@@ -84,7 +84,7 @@ export default function AppPage() {
           "text-lg [&_button]:text-base",
         accessibilitySettings.fontSize === "extra" &&
           "text-xl [&_button]:text-lg",
-        accessibilitySettings.lowVision && "contrast-125 brightness-105",
+        accessibilitySettings.lowVision && "tt-low-vision",
         accessibilitySettings.simpleMode &&
           "[&_p]:leading-relaxed [&_button]:min-h-11",
         accessibilitySettings.reducedMotion && "[&_*]:transition-none"
