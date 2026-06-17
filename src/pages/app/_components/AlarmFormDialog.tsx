@@ -162,7 +162,7 @@ export default function AlarmFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-md max-h-[92vh] overflow-y-auto">
+      <DialogContent className="z-[1200] max-w-md max-h-[82dvh] overflow-y-auto pb-24">
         <DialogHeader>
           <DialogTitle className="text-xl">
             {editAlarm ? "Editar alarma" : "Nueva alarma"}

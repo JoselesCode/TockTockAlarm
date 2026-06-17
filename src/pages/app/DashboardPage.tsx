@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   LogOut,
-  ArrowLeft,
+  Home,
+  Accessibility,
+  AlarmClock,
   History,
   LayoutDashboard,
   FileSpreadsheet,
@@ -24,12 +26,17 @@ import {
   PieChart,
   ResponsiveContainer,
   Tooltip,
+  Legend,
   XAxis,
   YAxis,
 } from "recharts";
 
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
+import { cn } from "@/lib/utils";
+import { useAppState } from "@/lib/app-state";
+import AccessibilityDialog from "@/pages/app/_components/AccessibilityDialog";
+
 
 import {
   getAllAttendanceRecords,
@@ -217,7 +224,17 @@ function exportToPDF(rows: AttendanceRecord[], title: string) {
 }
 
 export default function DashboardPage() {
-  const { removeUser } = useAuth();
+  const { user, removeUser } = useAuth();
+  const { accessibilitySettings } = useAppState();
+  const [accessibilityOpen, setAccessibilityOpen] = useState(false);
+  const activeAccessibilityCount = [
+  accessibilitySettings.lowVision,
+  accessibilitySettings.colorBlind,
+  accessibilitySettings.hearing,
+  accessibilitySettings.reducedMotion,
+  accessibilitySettings.simpleMode,
+  accessibilitySettings.fontSize !== "normal",
+].filter(Boolean).length;
   const currentWeek = getCurrentWeekRange();
 
   const [tab, setTab] = useState<Tab>("resumen");
@@ -609,38 +626,81 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-black">
-              Panel <span className="text-primary">RRHH</span>
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Supervisión de asistencia, turnos rotativos y marcajes
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Link to="/">
-              <Button variant="outline" size="sm" className="gap-2">
-                <ArrowLeft className="w-4 h-4" />
-                Inicio
-              </Button>
-            </Link>
-
-            <Button
-              variant="destructive"
-              size="sm"
-              className="gap-2"
-              onClick={handleLogout}
-            >
-              <LogOut className="w-4 h-4" />
-              Cerrar sesión
-            </Button>
-          </div>
+      <main
+          className={cn(
+            "min-h-screen bg-background text-foreground",
+            accessibilitySettings.fontSize === "large" && "text-lg [&_button]:text-base",
+            accessibilitySettings.fontSize === "extra" && "text-xl [&_button]:text-lg",
+            accessibilitySettings.lowVision && "tt-low-vision",
+            accessibilitySettings.simpleMode && "[&_p]:leading-relaxed [&_button]:min-h-11",
+            accessibilitySettings.reducedMotion && "[&_*]:transition-none"
+          )}
+          
+      >
+     <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur">
+  <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary shadow-sm">
+          <AlarmClock className="h-6 w-6 text-primary-foreground" />
         </div>
-      </header>
+
+        <div className="min-w-0">
+          <h1 className="text-2xl font-black leading-tight">
+            Panel <span className="text-primary">RRHH</span>
+          </h1>
+
+          <p className="truncate text-sm text-muted-foreground">
+            Supervisión de asistencia, turnos rotativos y marcajes
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 lg:w-auto lg:min-w-[520px]">
+        <Button
+          variant="outline"
+          size="sm"
+          className={cn(
+            "w-full gap-2 font-bold shadow-sm",
+            activeAccessibilityCount > 0 &&
+              "border-primary/30 bg-primary/10 text-primary"
+          )}
+          onClick={() => setAccessibilityOpen(true)}
+        >
+          <Accessibility className="h-4 w-4 shrink-0" />
+          <span className="hidden sm:inline">Accesibilidad</span>
+
+          {activeAccessibilityCount > 0 && (
+            <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-black text-primary-foreground">
+              {activeAccessibilityCount}
+            </span>
+          )}
+        </Button>
+
+        <Link to="/" className="w-full">
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full gap-2 font-bold shadow-sm"
+          >
+            <Home className="h-4 w-4 shrink-0" />
+            <span className="hidden sm:inline">Inicio</span>
+          </Button>
+        </Link>
+
+        <Button
+          variant="destructive"
+          size="sm"
+          className="w-full gap-2 font-bold shadow-sm"
+          onClick={handleLogout}
+        >
+          <LogOut className="h-4 w-4 shrink-0" />
+          <span className="hidden sm:inline">Cerrar sesión</span>
+        </Button>
+      </div>
+    </div>
+  </div>
+</header>
 
       <section className="max-w-7xl mx-auto p-4 sm:p-6 space-y-6 overflow-hidden">
         <section className="rounded-2xl border bg-card p-6">
@@ -709,6 +769,9 @@ export default function DashboardPage() {
             <div className="mb-4">
               <h3 className="font-bold">Asistencia por día de la semana</h3>
               <p className="text-sm text-muted-foreground mt-1">
+                Porcentaje de asistencia diaria del período seleccionado.
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
                 {selectedWeekText}
               </p>
             </div>
@@ -717,8 +780,8 @@ export default function DashboardPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={asistenciaPorDiaSemana}>
                   <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                  <XAxis dataKey="day" />
-                  <YAxis domain={[0, 100]} />
+                  <XAxis dataKey="day" tick={{ fontSize: 12 }} />
+                  <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} tickFormatter={(v) => `${v}%`} />
                   <Tooltip
                     formatter={(value, _name, props) => [
                       `${value}%`,
@@ -741,27 +804,31 @@ export default function DashboardPage() {
 
           <div className="rounded-2xl border bg-card p-6">
             <h3 className="font-bold mb-4">Top 5 atrasos por trabajador</h3>
+            <p className="text-sm text-muted-foreground mb-3">
+                Trabajadores con mayor cantidad de atrasos registrados.
+            </p>
             <div className="tt-chart h-72 sm:h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={topAtrasos}
                   layout="vertical"
-                  margin={{ top: 10, right: 30, left: 60, bottom: 10 }}
+                  margin={{ top: 10, right: 30, left: 10, bottom: 10 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                   <XAxis type="number" allowDecimals={false} />
-                  <YAxis
+                 <YAxis
                     type="category"
                     dataKey="name"
-                    width={170}
-                    tick={{ fontSize: 12 }}
+                    width={120}
+                    tick={{ fontSize: 11 }}
                   />
                   <Tooltip />
-                  <Bar
+                 <Bar
                     dataKey="total"
                     fill="#ff5a00"
-                    barSize={30}
-                    radius={[0, 8, 8, 0]}
+                    barSize={34}
+                    radius={[0, 10, 10, 0]}
+                    label={{ position: "right", fontSize: 12, fontWeight: 700 }}
                   />
                 </BarChart>
               </ResponsiveContainer>
@@ -770,39 +837,54 @@ export default function DashboardPage() {
 
           <div className="rounded-2xl border bg-card p-6">
             <h3 className="font-bold mb-4">Distribución de estados</h3>
+            <p className="text-sm text-muted-foreground mb-3">
+              Distribución de asistencia del período seleccionado.
+            </p>
             <div className="tt-chart h-72 sm:h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={estadosData}
-                    dataKey="value"
-                    nameKey="name"
-                    outerRadius={100}
-                    label
-                  >
-                    {estadosData.map((_, index) => (
-                      <Cell
-                        key={index}
-                        fill={
-                          [
-                            "#16a34a",
-                            "#f97316",
-                            "#ef4444",
-                            "#eab308",
-                            "#3b82f6",
-                          ][index]
-                        }
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={estadosData}
+                  dataKey="value"
+                  nameKey="name"
+                  outerRadius={100}
+                  label={({ name, percent }) =>
+                    `${name} (${(percent * 100).toFixed(0)}%)`
+                  }
+                >
+                  {estadosData.map((_, index) => (
+                    <Cell
+                      key={index}
+                      fill={
+                        [
+                          "#16a34a",
+                          "#f97316",
+                          "#ef4444",
+                          "#eab308",
+                          "#3b82f6",
+                        ][index]
+                      }
+                    />
+                  ))}
+                </Pie>
+
+                <Tooltip />
+
+                <Legend
+                  verticalAlign="bottom"
+                  align="center"
+                  iconType="circle"
+                />
+              </PieChart>
+            </ResponsiveContainer>
             </div>
           </div>
 
           <div className="rounded-2xl border bg-card p-6">
             <h3 className="font-bold mb-4">Atrasos por turno</h3>
+            <p className="text-sm text-muted-foreground mb-3">
+              Comparación de atrasos acumulados por tipo de turno.
+            </p>
             <div className="tt-chart h-72 sm:h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={atrasosPorTurno}>
@@ -813,8 +895,9 @@ export default function DashboardPage() {
                   <Bar
                     dataKey="atrasos"
                     fill="#ff5a00"
-                    barSize={45}
-                    radius={[8, 8, 0, 0]}
+                    barSize={55}
+                    radius={[10, 10, 0, 0]}
+                    label={{ position: "top", fontSize: 12, fontWeight: 700 }}
                   />
                 </BarChart>
               </ResponsiveContainer>
@@ -923,6 +1006,10 @@ export default function DashboardPage() {
           </section>
         )}
       </section>
+      <AccessibilityDialog
+  open={accessibilityOpen}
+  onClose={() => setAccessibilityOpen(false)}
+/>
     </main>
   );
 }
