@@ -92,7 +92,7 @@ export default function AppPage() {
     >
       <div
         ref={headerRef}
-        className="fixed left-0 right-0 top-0 z-[999] bg-background shadow-sm"
+        className="fixed left-0 right-0 top-0 z-[80] bg-background shadow-sm"
       >
         <AppHeader
           activeShift={activeShift}

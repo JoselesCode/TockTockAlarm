@@ -26,7 +26,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-const SOURCE = "seed-demo-abril-mayo-v4-rotacion-semanal";
+const SOURCE = "seed-demo-abril-mayo-junio-v2-lunes";
 const DELETE_OLD_SEED_DATA = true;
 
 const workers = [
@@ -70,10 +70,25 @@ function formatDateLocal(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
+function getMonday(date: Date) {
+  const result = new Date(date);
+  const day = result.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+
+  result.setDate(result.getDate() + diff);
+  result.setHours(0, 0, 0, 0);
+
+  return result;
+}
+
 function getWeekIndex(date: Date, startDate: Date) {
   const oneDay = 24 * 60 * 60 * 1000;
+
+  const currentMonday = getMonday(date);
+  const startMonday = getMonday(startDate);
+
   const diffDays = Math.floor(
-    (date.getTime() - startDate.getTime()) / oneDay
+    (currentMonday.getTime() - startMonday.getTime()) / oneDay
   );
 
   return Math.floor(diffDays / 7);
@@ -91,6 +106,9 @@ async function deleteOldSeedData() {
     "seed-demo-abril-mayo-v2",
     "seed-demo-abril-mayo-v3",
     "seed-demo-abril-mayo-v4-rotacion-semanal",
+    "seed-demo-junio-2026-v1",
+    "seed-demo-abril-mayo-junio-v1",
+    "seed-demo-abril-mayo-junio-v2-lunes",
   ];
 
   let deleted = 0;
@@ -118,7 +136,7 @@ async function seedAttendance() {
   }
 
   const startDate = new Date(2026, 3, 1); // 01 abril 2026
-  const endDate = new Date(2026, 4, 31); // 31 mayo 2026
+  const endDate = new Date(2026, 5, 30); // 30 junio 2026
 
   let total = 0;
 
@@ -129,7 +147,6 @@ async function seedAttendance() {
   ) {
     const day = currentDate.getDay();
 
-    // No genera registros los domingos
     if (day === 0) continue;
 
     const weekIndex = getWeekIndex(currentDate, startDate);
@@ -177,6 +194,7 @@ async function seedAttendance() {
         source: SOURCE,
         rotationType: "weekly",
         rotationWeek: weekIndex + 1,
+        weekStartsOn: "monday",
         createdAt: Timestamp.now(),
       });
 
@@ -184,12 +202,12 @@ async function seedAttendance() {
     }
   }
 
-  console.log(`✅ Datos creados: ${total}`);
+  console.log(`✅ Datos creados abril-mayo-junio 2026: ${total}`);
 }
 
 seedAttendance()
   .then(() => {
-    console.log("🔥 Seed finalizado correctamente");
+    console.log("🔥 Seed finalizado correctamente con semanas desde lunes");
     process.exit(0);
   })
   .catch((error) => {
