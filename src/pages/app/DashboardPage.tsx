@@ -228,13 +228,23 @@ export default function DashboardPage() {
   const { accessibilitySettings } = useAppState();
   const [accessibilityOpen, setAccessibilityOpen] = useState(false);
   const activeAccessibilityCount = [
-  accessibilitySettings.lowVision,
-  accessibilitySettings.colorBlind,
-  accessibilitySettings.hearing,
-  accessibilitySettings.reducedMotion,
-  accessibilitySettings.simpleMode,
-  accessibilitySettings.fontSize !== "normal",
-].filter(Boolean).length;
+    accessibilitySettings.lowVision,
+    accessibilitySettings.colorBlind,
+    accessibilitySettings.fontSize !== "normal",
+    accessibilitySettings.themeMode !== "system",
+  ].filter(Boolean).length;
+  useEffect(() => {
+  const root = document.documentElement;
+
+  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+  const shouldUseDark =
+    accessibilitySettings.themeMode === "dark" ||
+    (accessibilitySettings.themeMode === "system" && prefersDark);
+
+  root.classList.toggle("dark", shouldUseDark);
+}, [accessibilitySettings.themeMode]);
+
   const currentWeek = getCurrentWeekRange();
 
   const [tab, setTab] = useState<Tab>("resumen");
@@ -632,8 +642,7 @@ export default function DashboardPage() {
             accessibilitySettings.fontSize === "large" && "text-lg [&_button]:text-base",
             accessibilitySettings.fontSize === "extra" && "text-xl [&_button]:text-lg",
             accessibilitySettings.lowVision && "tt-low-vision",
-            accessibilitySettings.simpleMode && "[&_p]:leading-relaxed [&_button]:min-h-11",
-            accessibilitySettings.reducedMotion && "[&_*]:transition-none"
+            accessibilitySettings.colorBlind && "tt-color-blind"
           )}
           
       >

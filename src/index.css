@@ -340,3 +340,31 @@ body {
   --card-foreground: oklch(0.98 0.01 60);
   --primary: oklch(0.75 0.24 40);
 }
+.tt-color-blind {
+  --primary: oklch(0.62 0.18 245);
+  --ring: oklch(0.62 0.18 245);
+  --chart-1: oklch(0.62 0.18 245);
+  --chart-2: oklch(0.72 0.14 80);
+  --chart-3: oklch(0.60 0.14 150);
+  --chart-4: oklch(0.55 0.12 310);
+  --chart-5: oklch(0.68 0.14 30);
+}
+
+.tt-color-blind [class*="text-green"],
+.tt-color-blind [class*="text-red"],
+.tt-color-blind [class*="text-yellow"],
+.tt-color-blind [class*="text-orange"] {
+  filter: saturate(0.85) contrast(1.15);
+}
+
+.tt-low-vision button,
+.tt-low-vision input,
+.tt-low-vision select,
+.tt-low-vision textarea {
+  border-width: 2px;
+}
+
+.tt-low-vision .rounded-2xl,
+.tt-low-vision .rounded-xl {
+  box-shadow: 0 0 0 1px var(--border);
+}

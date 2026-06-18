@@ -55,11 +55,20 @@ export default function AppPage() {
   const activeAccessibilityCount = [
     accessibilitySettings.lowVision,
     accessibilitySettings.colorBlind,
-    accessibilitySettings.hearing,
-    accessibilitySettings.reducedMotion,
-    accessibilitySettings.simpleMode,
     accessibilitySettings.fontSize !== "normal",
+    accessibilitySettings.themeMode !== "system",
   ].filter(Boolean).length;
+  useEffect(() => {
+  const root = document.documentElement;
+
+  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+  const shouldUseDark =
+    accessibilitySettings.themeMode === "dark" ||
+    (accessibilitySettings.themeMode === "system" && prefersDark);
+
+  root.classList.toggle("dark", shouldUseDark);
+}, [accessibilitySettings.themeMode]);
 
   useLayoutEffect(() => {
     const updateHeaderHeight = () => {
@@ -85,9 +94,7 @@ export default function AppPage() {
         accessibilitySettings.fontSize === "extra" &&
           "text-xl [&_button]:text-lg",
         accessibilitySettings.lowVision && "tt-low-vision",
-        accessibilitySettings.simpleMode &&
-          "[&_p]:leading-relaxed [&_button]:min-h-11",
-        accessibilitySettings.reducedMotion && "[&_*]:transition-none"
+        accessibilitySettings.colorBlind && "tt-color-blind"
       )}
     >
       <div
@@ -110,8 +117,7 @@ export default function AppPage() {
                     "min-w-fit flex-1 flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all whitespace-nowrap",
                     tab === id
                       ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                    accessibilitySettings.simpleMode && "py-4"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   )}
                 >
                   <Icon className="h-4 w-4 shrink-0" />
