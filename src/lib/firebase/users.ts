@@ -14,23 +14,20 @@ import { db } from "@/lib/firebase";
 export type UserRole = "worker" | "rrhh";
 
 export type AccessibilityFontSize = "normal" | "large" | "extra";
+export type AccessibilityThemeMode = "system" | "light" | "dark";
 
 export type AccessibilitySettings = {
   fontSize: AccessibilityFontSize;
   lowVision: boolean;
   colorBlind: boolean;
-  hearing: boolean;
-  reducedMotion: boolean;
-  simpleMode: boolean;
+  themeMode: AccessibilityThemeMode;
 };
 
 export const DEFAULT_ACCESSIBILITY_SETTINGS: AccessibilitySettings = {
   fontSize: "normal",
   lowVision: false,
   colorBlind: false,
-  hearing: false,
-  reducedMotion: false,
-  simpleMode: false,
+  themeMode: "system",
 };
 
 export type FirestoreUserProfile = {
@@ -150,9 +147,13 @@ export async function getUserAccessibilitySettings(
       return DEFAULT_ACCESSIBILITY_SETTINGS;
     }
 
+    const data = snapshot.data() as Partial<AccessibilitySettings>;
+
     return {
-      ...DEFAULT_ACCESSIBILITY_SETTINGS,
-      ...(snapshot.data() as Partial<AccessibilitySettings>),
+      fontSize: data.fontSize ?? DEFAULT_ACCESSIBILITY_SETTINGS.fontSize,
+      lowVision: data.lowVision ?? DEFAULT_ACCESSIBILITY_SETTINGS.lowVision,
+      colorBlind: data.colorBlind ?? DEFAULT_ACCESSIBILITY_SETTINGS.colorBlind,
+      themeMode: data.themeMode ?? DEFAULT_ACCESSIBILITY_SETTINGS.themeMode,
     };
   } catch (error) {
     console.error("Error obteniendo configuración de accesibilidad:", error);
