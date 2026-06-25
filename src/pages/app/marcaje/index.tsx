@@ -30,7 +30,7 @@ import { cn } from "@/lib/utils.ts";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 import { type AttendanceRecord, useAppState } from "@/lib/app-state.tsx";
 import { isInsideGeofence } from "@/lib/firebase/locationDefining";
-import { getAuth } from "firebase/auth";
+import { useAuth } from "@/hooks/use-auth";
 import {
   captureImage,
   getFaceDescriptor,
@@ -55,8 +55,11 @@ type GeoState =
   | { status: "denied" }
   | { status: "unavailable" };
 
+type RecordStep = "idle" | "location" | "face" | "saving";
+
 function formatTimestamp(ts: string) {
   const d = new Date(ts);
+
   return {
     date: d.toLocaleDateString("es-CL", {
       weekday: "short",
@@ -78,11 +81,6 @@ function RecordCard({ record }: { record: AttendanceRecord }) {
 
   const { date, time } = formatTimestamp(record.timestamp);
   const isCheckIn = record.type === "checkin";
-  const hasLocation =
-    record.latitude !== undefined &&
-    record.latitude !== null &&
-    record.longitude !== undefined &&
-    record.longitude !== null;
 
   return (
     <>
@@ -128,7 +126,7 @@ function RecordCard({ record }: { record: AttendanceRecord }) {
 
             <p className="font-black text-2xl tabular-nums mt-1">{time}</p>
 
-            {hasLocation ? (
+            {record.latitude != null && record.longitude != null ? (
               <button
                 onClick={() => setShowMap(!showMap)}
                 className={cn(
@@ -159,35 +157,30 @@ function RecordCard({ record }: { record: AttendanceRecord }) {
         </div>
 
         <AnimatePresence>
-          {showMap &&
-            hasLocation &&
-            record.latitude !== undefined &&
-            record.latitude !== null &&
-            record.longitude !== undefined &&
-            record.longitude !== null && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.25 }}
-                className="overflow-hidden mt-3"
-              >
-                <Suspense fallback={<Skeleton className="h-48 w-full rounded-xl" />}>
-                  <AttendanceMap
-                    lat={record.latitude}
-                    lng={record.longitude}
-                    label={isCheckIn ? "Entrada" : "Salida"}
-                    className="h-48 w-full rounded-xl"
-                  />
-                </Suspense>
+          {showMap && record.latitude != null && record.longitude != null && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              className="overflow-hidden mt-3"
+            >
+              <Suspense fallback={<Skeleton className="h-48 w-full rounded-xl" />}>
+                <AttendanceMap
+                  lat={record.latitude}
+                  lng={record.longitude}
+                  label={isCheckIn ? "Entrada" : "Salida"}
+                  className="h-48 w-full rounded-xl"
+                />
+              </Suspense>
 
-                {record.accuracy !== undefined && record.accuracy !== null && (
-                  <p className="text-xs text-muted-foreground mt-1.5 text-center">
-                    Precisión: ±{Math.round(record.accuracy)}m
-                  </p>
-                )}
-              </motion.div>
-            )}
+              {record.accuracy != null && (
+                <p className="text-xs text-muted-foreground mt-1.5 text-center">
+                  Precisión: ±{Math.round(record.accuracy)}m
+                </p>
+              )}
+            </motion.div>
+          )}
         </AnimatePresence>
       </div>
 
@@ -220,6 +213,9 @@ function RecordCard({ record }: { record: AttendanceRecord }) {
 }
 
 export default function MarcajePage() {
+  const { user, isAuthenticated, isLoading } = useAuth();
+  const uid = user?.uid ?? "";
+
   const { shifts, attendance, recordAttendance } = useAppState();
 
   const latest = attendance[0] ?? null;
@@ -229,9 +225,11 @@ export default function MarcajePage() {
 
   const [geo, setGeo] = useState<GeoState>({ status: "idle" });
   const [recording, setRecording] = useState(false);
+  const [recordStep, setRecordStep] = useState<RecordStep>("idle");
   const [showCamera, setShowCamera] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [visibleCount, setVisibleCount] = useState(10);
+
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const results = useMemo(
@@ -297,26 +295,38 @@ export default function MarcajePage() {
 
   const startCamera = async () => {
     try {
+      setShowCamera(true);
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: "user",
-          width: 640,
-          height: 480,
+          width: { ideal: 640 },
+          height: { ideal: 480 },
         },
         audio: false,
       });
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current?.play();
-          setCameraReady(true);
-        };
+      if (!videoRef.current) {
+        throw new Error("No se encontró el elemento de video");
       }
+
+      videoRef.current.srcObject = stream;
+
+      await new Promise<void>((resolve) => {
+        if (!videoRef.current) return resolve();
+
+        videoRef.current.onloadedmetadata = async () => {
+          await videoRef.current?.play();
+          setCameraReady(true);
+          resolve();
+        };
+      });
     } catch (error) {
-      console.error(error);
+      console.error("Error cámara:", error);
+      setCameraReady(false);
+      setShowCamera(false);
       toast.error("No se pudo acceder a la cámara");
+      throw error;
     }
   };
 
@@ -337,79 +347,76 @@ export default function MarcajePage() {
 
   const handleRecord = async () => {
     setRecording(true);
-    setShowCamera(true);
+    setRecordStep("location");
 
     try {
-      await startCamera();
-
-      const auth = getAuth();
-      const uid = auth.currentUser?.uid;
-
-      if (!uid) {
-        toast.error("Usuario no autenticado");
-        setRecording(false);
-        stopCamera();
+      if (isLoading) {
+        toast.error("Cargando usuario, intenta nuevamente");
         return;
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      if (!isAuthenticated || !uid) {
+        toast.error("Usuario no autenticado");
+        return;
+      }
+
+      setGeo({ status: "loading" });
+
+      const pos = await getLocation();
+
+      if (!pos) {
+        toast.error("No se pudo obtener tu ubicación");
+        setGeo({ status: "denied" });
+        return;
+      }
+
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      const accuracy = pos.coords.accuracy ?? null;
+
+      const inside = isInsideGeofence(lat, lng, officeGeofence);
+
+      if (!inside) {
+        toast.error("No puedes marcar: estás fuera de la ubicación permitida");
+        setGeo({ status: "denied" });
+        return;
+      }
+
+      setGeo({
+        status: "success",
+        lat,
+        lng,
+        accuracy: accuracy ?? 0,
+      });
 
       const stored = await getStoredDescriptor(uid);
 
       if (!stored) {
         toast.error("No tienes rostro registrado");
-        setRecording(false);
-        stopCamera();
         return;
       }
 
-      const image = await captureImage(videoRef.current!);
+      setRecordStep("face");
+      await startCamera();
+
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+
+      if (!videoRef.current) {
+        toast.error("La cámara no está lista");
+        return;
+      }
+
+      const image = await captureImage(videoRef.current);
       const newDescriptor = await getFaceDescriptor(image);
 
       const match = compareFaces(stored, newDescriptor);
 
       if (!match) {
         toast.error("Rostro no coincide");
-        setRecording(false);
-        stopCamera();
         return;
       }
 
-      setGeo({ status: "loading" });
-
-      let lat: number | null = null;
-      let lng: number | null = null;
-      let accuracy: number | null = null;
-
-      const pos = await getLocation();
-
-      if (pos) {
-        lat = pos.coords.latitude;
-        lng = pos.coords.longitude;
-        accuracy = pos.coords.accuracy ?? null;
-
-        setGeo({
-          status: "success",
-          lat,
-          lng,
-          accuracy: accuracy ?? 0,
-        });
-      } else {
-        setGeo({ status: "denied" });
-      }
-
-      let inside: boolean | null = null;
-
-      if (lat !== null && lng !== null) {
-        inside = isInsideGeofence(lat, lng, officeGeofence);
-      }
-
-      if (inside === false) {
-        toast.error("No puedes marcar: estás fuera de la ubicación permitida");
-        setRecording(false);
-        stopCamera();
-        return;
-      }
+      setRecordStep("saving");
 
       await recordAttendance({
         type: nextType,
@@ -430,12 +437,13 @@ export default function MarcajePage() {
           : "Salida registrada correctamente"
       );
     } catch (error) {
-      console.error(error);
+      console.error("Error en el marcaje:", error);
       toast.error("Error en el marcaje");
+    } finally {
+      stopCamera();
+      setRecording(false);
+      setRecordStep("idle");
     }
-
-    stopCamera();
-    setRecording(false);
   };
 
   const now = new Date();
@@ -515,16 +523,61 @@ export default function MarcajePage() {
         </div>
       </div>
 
-      {geo.status === "success" && (
+      {geo.status === "success" && !showCamera && (
         <div className="w-full h-56 rounded-2xl overflow-hidden border">
           <Suspense fallback={<Skeleton className="h-full w-full" />}>
             <AttendanceMap
               lat={geo.lat}
               lng={geo.lng}
-              label="ubicacion"
+              label="Ubicación actual"
               className="h-full w-full"
             />
           </Suspense>
+        </div>
+      )}
+
+      {recording && (
+        <div className="rounded-2xl border bg-card p-4 space-y-3">
+          <p className="font-black text-sm text-center">Proceso de marcaje</p>
+
+          <div className="grid grid-cols-3 gap-2 text-xs font-bold text-center">
+            <div
+              className={cn(
+                "rounded-xl p-2 border",
+                recordStep === "location"
+                  ? "bg-orange-100 border-orange-300 text-orange-700"
+                  : recordStep === "face" || recordStep === "saving"
+                    ? "bg-green-100 border-green-300 text-green-700"
+                    : "bg-muted"
+              )}
+            >
+              📍 Ubicación
+            </div>
+
+            <div
+              className={cn(
+                "rounded-xl p-2 border",
+                recordStep === "face"
+                  ? "bg-orange-100 border-orange-300 text-orange-700"
+                  : recordStep === "saving"
+                    ? "bg-green-100 border-green-300 text-green-700"
+                    : "bg-muted"
+              )}
+            >
+              😀 Rostro
+            </div>
+
+            <div
+              className={cn(
+                "rounded-xl p-2 border",
+                recordStep === "saving"
+                  ? "bg-orange-100 border-orange-300 text-orange-700"
+                  : "bg-muted"
+              )}
+            >
+              ☁️ Guardando
+            </div>
+          </div>
         </div>
       )}
 
@@ -551,7 +604,9 @@ export default function MarcajePage() {
                 />
 
                 <p className="text-center text-sm text-muted-foreground">
-                  Mira a la cámara para validar tu identidad
+                  {cameraReady
+                    ? "Mira a la cámara para validar tu identidad"
+                    : "Iniciando cámara..."}
                 </p>
 
                 <Button
@@ -560,6 +615,8 @@ export default function MarcajePage() {
                   onClick={() => {
                     stopCamera();
                     setRecording(false);
+                    setRecordStep("idle");
+                    toast.info("Verificación cancelada");
                   }}
                 >
                   Cancelar
@@ -583,9 +640,10 @@ export default function MarcajePage() {
             <>
               <Loader2 className="w-12 h-12 animate-spin" />
               <span>
-                {geo.status === "loading"
-                  ? "Obteniendo ubicación..."
-                  : "Registrando..."}
+                {recordStep === "location" && "Validando ubicación..."}
+                {recordStep === "face" && "Verificando rostro..."}
+                {recordStep === "saving" && "Guardando marcaje..."}
+                {recordStep === "idle" && "Registrando..."}
               </span>
             </>
           ) : (
@@ -604,7 +662,7 @@ export default function MarcajePage() {
 
               <span className="text-sm font-normal opacity-80 flex items-center gap-1">
                 <Navigation className="w-3.5 h-3.5" />
-                Con geolocalización automática
+                Ubicación + reconocimiento facial
               </span>
             </>
           )}
@@ -625,7 +683,7 @@ export default function MarcajePage() {
                 Ubicación no disponible
               </p>
               <p className="text-xs text-yellow-700 dark:text-yellow-500 mt-0.5">
-                El marcaje se registró sin coordenadas.
+                No se pudo validar tu ubicación para realizar el marcaje.
               </p>
             </div>
           </motion.div>
@@ -640,7 +698,7 @@ export default function MarcajePage() {
           >
             <MapPin className="w-4 h-4 text-green-600 flex-shrink-0" />
             <p className="text-sm text-green-700 dark:text-green-400">
-              Ubicación registrada · precisión ±{Math.round(geo.accuracy)}m
+              Ubicación validada · precisión ±{Math.round(geo.accuracy)}m
             </p>
           </motion.div>
         )}
